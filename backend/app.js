@@ -2,18 +2,26 @@ const express = require('express');
 const cors = require('cors');
 
 // ── Route Imports ──────────────────────────────────────
+// Module A routes (Foundation)
 const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/products');
 const categoryRoutes = require('./routes/categories');
+
+// Module B routes (POS Configuration)  
 const floorRoutes = require('./routes/floors');
 const tableRoutes = require('./routes/tables');
 const paymentMethodRoutes = require('./routes/paymentMethods');
 const terminalRoutes = require('./routes/terminal');
 const sessionRoutes = require('./routes/sessions');
 const reservationRoutes = require('./routes/reservations');
+
+// Module C routes (POS Terminals)
 const orderRoutes = require('./routes/orders');
 const paymentRoutes = require('./routes/payments');
+
+// Module D routes (Displays/Reports)
 const kitchenRoutes = require('./routes/kitchen');
+const customerDisplayRoutes = require('./routes/customerDisplay');
 const reportRoutes = require('./routes/reports');
 
 const app = express();
@@ -64,6 +72,7 @@ app.use('/api/payments', paymentRoutes);
 
 // Module D — Person 4
 app.use('/api/kitchen', kitchenRoutes);
+app.use('/api/customer-display', customerDisplayRoutes);
 app.use('/api/reports', reportRoutes);
 
 /* ---------- Health Check ---------- */

@@ -2,6 +2,9 @@ const express = require('express');
 const { pool } = require('../db.js');
 
 const router = express.Router();
+const auth = require('../middleware/auth');
+
+router.use(auth);
 
 // GET /api/sessions/current
 router.get('/current', async (req, res) => {

@@ -2,6 +2,9 @@ const express = require('express');
 const { pool } = require('../db.js');
 
 const router = express.Router();
+const auth = require('../middleware/auth');
+
+router.use(auth);
 
 // Valid state transitions
 const VALID_TRANSITIONS = {
