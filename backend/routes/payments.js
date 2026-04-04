@@ -3,9 +3,7 @@ const router = express.Router();
 const paymentController = require('../controllers/paymentController');
 const auth = require('../middleware/auth');
 
-// Protect all payment routes
-router.use(auth);
-
+// No auth required for terminal payment flows (Self-Order support)
 // POST /api/payments — Create pending payment
 router.post('/', paymentController.createPayment);
 
@@ -20,5 +18,8 @@ router.post('/razorpay/order', paymentController.createRazorpayOrder);
 
 // POST /api/payments/razorpay/verify — Verify successful Razorpay payment
 router.post('/razorpay/verify', paymentController.verifyRazorpayPayment);
+
+// Protect sensitive routes (none in this file currently, but for future)
+// router.use(auth);
 
 module.exports = router;

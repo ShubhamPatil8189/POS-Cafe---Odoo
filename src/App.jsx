@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import API_BASE_URL from './config';
 import {
   ShoppingCart,
   DollarSign,
@@ -77,6 +78,25 @@ export default function App() {
   const [showModal, setShowModal] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [inputVal, setInputVal] = useState('');
+
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [prodRes, catRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/products`),
+          fetch(`${API_BASE_URL}/categories`)
+        ]);
+        if (prodRes.ok) setProducts(await prodRes.json());
+        if (catRes.ok) setCategories(await catRes.json());
+      } catch (err) {
+        console.error('Fetch error:', err);
+      }
+    };
+    fetchData();
+  }, []);
 
   if (activeView === 'login') {
     return <Login onNavigate={setActiveView} />;
@@ -185,29 +205,29 @@ export default function App() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatsCard
                   title="Total Revenue"
-                  value="₹1,24,580"
-                  change="12.5%"
+                  value="₹0"
+                  change="0%"
                   changeType="positive"
                   icon={DollarSign}
                 />
                 <StatsCard
                   title="Orders Today"
-                  value="284"
-                  change="8.2%"
+                  value="0"
+                  change="0%"
                   changeType="positive"
                   icon={ShoppingCart}
                 />
                 <StatsCard
-                  title="Active Customers"
-                  value="1,429"
-                  change="3.1%"
-                  changeType="negative"
-                  icon={Users}
+                  title="Live Products"
+                  value={products.length.toString()}
+                  change="+100%"
+                  changeType="positive"
+                  icon={Coffee}
                 />
                 <StatsCard
-                  title="Avg. Order Value"
-                  value="₹438"
-                  change="5.4%"
+                  title="Categories"
+                  value={categories.length.toString()}
+                  change="Active"
                   changeType="positive"
                   icon={TrendingUp}
                 />
@@ -470,78 +490,43 @@ export default function App() {
             {/* ═══ Cards ═══ */}
             <Section
               id="cards"
-              title="Cards"
-              description="Content containers with hover effects and structured layouts."
+              title="Live Products"
+              description="The latest items from your restaurant menu."
             >
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card hover>
-                  <div className="w-full h-36 bg-gradient-to-br from-primary-100 to-primary-200 rounded-xl mb-4 flex items-center justify-center">
-                    <Coffee className="w-10 h-10 text-primary-500" />
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {products.length > 0 ? (
+                  products.map(product => (
+                    <Card key={product.id} hover className="flex flex-col h-full">
+                      <div className="w-full h-36 overflow-hidden rounded-xl mb-4 bg-surface-hover flex items-center justify-center">
+                        <img 
+                          src={product.image_url || 'default.jpg'} 
+                          alt={product.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?q=80&w=600&auto=format&fit=crop'; }}
+                        />
+                      </div>
+                      <Badge variant={product.is_active ? "success" : "danger"} size="sm" dot className="mb-2 w-fit">
+                        {product.is_active ? "In Stock" : "Out of Stock"}
+                      </Badge>
+                      <h3 className="text-base font-semibold text-text-primary line-clamp-1">
+                        {product.name}
+                      </h3>
+                      <p className="text-sm text-text-secondary mt-1 line-clamp-2 min-h-[40px]">
+                        {product.description || 'No description available for this item.'}
+                      </p>
+                      <div className="flex items-center justify-between mt-auto pt-4">
+                        <span className="text-lg font-bold text-primary-700">
+                          ₹{product.price}
+                        </span>
+                        <Badge variant="outline" size="xs">{product.category_name || 'Uncategorized'}</Badge>
+                      </div>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="col-span-full py-12 text-center bg-surface-hover rounded-2xl border-2 border-dashed border-border">
+                    <p className="text-text-secondary">No real products found in the database. Please add some in the POS view!</p>
                   </div>
-                  <Badge variant="accent" size="sm" className="mb-2">
-                    Popular
-                  </Badge>
-                  <h3 className="text-base font-semibold text-text-primary">
-                    Cappuccino
-                  </h3>
-                  <p className="text-sm text-text-secondary mt-1">
-                    Rich espresso with steamed milk foam
-                  </p>
-                  <div className="flex items-center justify-between mt-4">
-                    <span className="text-lg font-bold text-primary-700">
-                      ₹180
-                    </span>
-                    <Button size="sm" icon={Plus}>
-                      Add
-                    </Button>
-                  </div>
-                </Card>
-
-                <Card hover>
-                  <div className="w-full h-36 bg-gradient-to-br from-accent-100 to-accent-200 rounded-xl mb-4 flex items-center justify-center">
-                    <UtensilsCrossedIcon />
-                  </div>
-                  <Badge variant="success" size="sm" dot className="mb-2">
-                    Available
-                  </Badge>
-                  <h3 className="text-base font-semibold text-text-primary">
-                    Avocado Toast
-                  </h3>
-                  <p className="text-sm text-text-secondary mt-1">
-                    Sourdough with fresh avocado &amp; egg
-                  </p>
-                  <div className="flex items-center justify-between mt-4">
-                    <span className="text-lg font-bold text-primary-700">
-                      ₹320
-                    </span>
-                    <Button size="sm" icon={Plus}>
-                      Add
-                    </Button>
-                  </div>
-                </Card>
-
-                <Card hover>
-                  <div className="w-full h-36 bg-gradient-to-br from-danger-100 to-danger-200 rounded-xl mb-4 flex items-center justify-center">
-                    <Star className="w-10 h-10 text-danger-400" />
-                  </div>
-                  <Badge variant="danger" size="sm" dot className="mb-2">
-                    Last 2 left
-                  </Badge>
-                  <h3 className="text-base font-semibold text-text-primary">
-                    Strawberry Cake
-                  </h3>
-                  <p className="text-sm text-text-secondary mt-1">
-                    Fresh layered cake with cream filling
-                  </p>
-                  <div className="flex items-center justify-between mt-4">
-                    <span className="text-lg font-bold text-primary-700">
-                      ₹280
-                    </span>
-                    <Button size="sm" icon={Plus}>
-                      Add
-                    </Button>
-                  </div>
-                </Card>
+                )}
               </div>
 
               {/* Card with footer */}

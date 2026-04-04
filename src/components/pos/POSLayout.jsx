@@ -22,20 +22,25 @@ export default function POSLayout({ onNavigate }) {
 
   const fetchProductsAndMethods = async () => {
     try {
-      const [prodRes, payRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/products`),
-        fetch(`${API_BASE_URL}/payment-methods`, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        })
-      ]);
-      if (!prodRes.ok) throw new Error('Failed to fetch products');
-      if (!payRes.ok) throw new Error('Failed to fetch payment methods');
-      
-      const prodData = await prodRes.json();
-      const payData = await payRes.json();
-      
-      setProducts(prodData);
-      setPaymentMethods(payData);
+      // 1. Fetch Products (Public Endpoint)
+      const prodRes = await fetch(`${API_BASE_URL}/products`);
+      if (prodRes.ok) {
+        const prodData = await prodRes.json();
+        setProducts(prodData);
+      } else {
+        console.warn('Failed to fetch products');
+      }
+
+      // 2. Fetch Payment Methods (Auth Endpoint)
+      const payRes = await fetch(`${API_BASE_URL}/payment-methods`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (payRes.ok) {
+        const payData = await payRes.json();
+        setPaymentMethods(payData);
+      } else {
+        console.warn('Failed to fetch payment methods (Likely No Token)');
+      }
     } catch (err) {
       console.error('API Error:', err);
     } finally {

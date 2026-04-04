@@ -67,9 +67,16 @@ exports.validatePayment = async (req, res) => {
     // 4. Update order status to 'completed'
     await conn.query('UPDATE orders SET status = ? WHERE id = ?', ['completed', order.id]);
 
-    // 5. Update table status back to 'available'
+    // 5. Update table status
     if (order.table_id) {
-      await conn.query(`UPDATE tables SET status = 'available' WHERE id = ?`, [order.table_id]);
+      if (order.source === 'self-order' && order.checkout_type === 'advance') {
+        // For Advance Pay self-orders, keep occupied for 30 mins
+        const expiryDate = new Date(Date.now() + 30 * 60 * 1000); // 30 mins
+        await conn.query(`UPDATE tables SET status = 'occupied', self_order_expiry = ? WHERE id = ?`, [expiryDate, order.table_id]);
+      } else {
+        // Standard flow: released immediately
+        await conn.query(`UPDATE tables SET status = 'available', self_order_expiry = NULL WHERE id = ?`, [order.table_id]);
+      }
     }
 
     await conn.commit();
@@ -266,7 +273,12 @@ exports.verifyRazorpayPayment = async (req, res) => {
 
       // 4. Update table status
       if (order.table_id) {
-        await conn.query(`UPDATE tables SET status = 'available' WHERE id = ?`, [order.table_id]);
+        if (order.source === 'self-order' && order.checkout_type === 'advance') {
+          const expiryDate = new Date(Date.now() + 30 * 60 * 1000);
+          await conn.query(`UPDATE tables SET status = 'occupied', self_order_expiry = ? WHERE id = ?`, [expiryDate, order.table_id]);
+        } else {
+          await conn.query(`UPDATE tables SET status = 'available', self_order_expiry = NULL WHERE id = ?`, [order.table_id]);
+        }
       }
 
       await conn.commit();

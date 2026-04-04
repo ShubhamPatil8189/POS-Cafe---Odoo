@@ -21,7 +21,9 @@ const initDB = async () => {
         is_active BOOLEAN DEFAULT TRUE,
         status VARCHAR(50) DEFAULT 'available',
         locked_by VARCHAR(255),
-        last_activity DATETIME
+        last_activity DATETIME,
+        self_order_token VARCHAR(255),
+        self_order_expiry DATETIME
       )
     `);
 

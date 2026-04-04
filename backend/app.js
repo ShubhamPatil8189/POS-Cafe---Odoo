@@ -19,6 +19,7 @@ const reservationRoutes = require('./routes/reservations');
 // Module C routes (POS Terminals)
 const orderRoutes = require('./routes/orders');
 const paymentRoutes = require('./routes/payments');
+const selfOrderRoutes = require('./routes/selfOrder');
 
 // Module D routes (Displays/Reports)
 const kitchenRoutes = require('./routes/kitchen');
@@ -55,6 +56,7 @@ app.use('/api/reservations', reservationRoutes);
 // Module C — Person 3
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/self-order', selfOrderRoutes);
 
 // Module D — Person 4
 app.use('/api/kitchen', kitchenRoutes);
@@ -152,5 +154,26 @@ app.get('/test-pay', async (req, res) => {
       res.status(500).send("Error: " + err.message);
   }
 });
+
+/* ---------- Background Tasks ---------- */
+// 30-minute timer release for 'Pay in Advance' self-orders
+const releaseExpiredTables = async () => {
+  try {
+    const { pool } = require('./db');
+    const [result] = await pool.query(`
+      UPDATE tables 
+      SET status = 'available', self_order_expiry = NULL 
+      WHERE status = 'occupied' AND self_order_expiry IS NOT NULL AND self_order_expiry <= NOW()
+    `);
+    if (result.affectedRows > 0) {
+      console.log(`🧹 Background Task: Released ${result.affectedRows} expired self-order tables.`);
+    }
+  } catch (error) {
+    console.error('❌ Background Task Error:', error.message);
+  }
+};
+
+// Check every 1 minute for faster response (can be adjusted to 5 minutes)
+setInterval(releaseExpiredTables, 60 * 1000);
 
 module.exports = app;

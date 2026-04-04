@@ -4,9 +4,7 @@ const { pool } = require('../db.js');
 const router = express.Router();
 const auth = require('../middleware/auth');
 
-router.use(auth);
-
-// GET /api/payment-methods
+// GET /api/payment-methods (Public)
 router.get('/', async (req, res) => {
   try {
     const [rows] = await pool.query('SELECT * FROM payment_methods');
@@ -18,7 +16,9 @@ router.get('/', async (req, res) => {
   }
 });
 
-// PUT /api/payment-methods/:id
+router.use(auth);
+
+// PUT /api/payment-methods/:id (Protected)
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
