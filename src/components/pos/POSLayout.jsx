@@ -2,44 +2,45 @@ import React, { useState } from 'react';
 import CategoryTabs from './CategoryTabs';
 import ProductCard from './ProductCard';
 import CartPanel from './CartPanel';
+import PaymentScreen from './PaymentScreen';
 import { Search, Menu, Home } from 'lucide-react';
 
 const mockProducts = [
-  // Hot Coffee
-  { id: 1, name: 'Latte Macchiato', price: 180, category: 'coffee', calories: 120, image: 'https://images.unsplash.com/photo-1593443320739-77f74939d0da?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 2, name: 'Espresso Double', price: 120, category: 'coffee', calories: 10, image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 8, name: 'Flat White', price: 160, category: 'coffee', calories: 110, image: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 9, name: 'Cappuccino', price: 170, category: 'coffee', calories: 130, image: 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 10, name: 'Americano', price: 140, category: 'coffee', calories: 15, image: 'https://images.unsplash.com/photo-1551030173-122aabc4489c?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 11, name: 'Café Mocha', price: 190, category: 'coffee', calories: 210, image: 'https://images.unsplash.com/photo-1578314675249-a6910f80cc4e?q=80&w=600&auto=format&fit=crop', available: true },
-  // Iced Beverages
-  { id: 3, name: 'Iced Caramel Cafe', price: 220, category: 'iced', calories: 240, image: 'https://images.unsplash.com/photo-1461023058943-07cb84a0d8da?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 6, name: 'Matcha Boba', price: 260, category: 'iced', calories: 180, image: 'https://images.unsplash.com/photo-1558857463-bd150a006cbd?q=80&w=600&auto=format&fit=crop', available: false },
-  { id: 12, name: 'Iced Latte', price: 200, category: 'iced', calories: 150, image: 'https://images.unsplash.com/photo-1517701604599-bb29b565090c?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 13, name: 'Cold Brew', price: 190, category: 'iced', calories: 10, image: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 14, name: 'Lemon Iced Tea', price: 150, category: 'iced', calories: 90, image: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?q=80&w=600&auto=format&fit=crop', available: true },
-  // Pastries
-  { id: 4, name: 'Almond Croissant', price: 150, category: 'pastry', calories: 310, image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 7, name: 'Blueberry Muffin', price: 130, category: 'pastry', calories: 280, image: 'https://images.unsplash.com/photo-1607958996333-41aef7caefaa?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 15, name: 'Chocolate Cookie', price: 90, category: 'pastry', calories: 220, image: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 16, name: 'Cinnamon Roll', price: 160, category: 'pastry', calories: 380, image: 'https://images.unsplash.com/photo-1509365465985-25d11c17e812?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 17, name: 'Butter Croissant', price: 120, category: 'pastry', calories: 260, image: 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?q=80&w=600&auto=format&fit=crop', available: true },
-  // Hot Food
-  { id: 5, name: 'Avocado Toast', price: 320, category: 'food', calories: 420, image: 'https://images.unsplash.com/photo-1603048297172-c92544798d5e?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 18, name: 'Breakfast Sandwich', price: 280, category: 'food', calories: 510, image: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 19, name: 'Grilled Cheese', price: 240, category: 'food', calories: 480, image: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 20, name: 'Caesar Salad', price: 290, category: 'food', calories: 340, image: 'https://images.unsplash.com/photo-1550304943-4f24f54ddde9?q=80&w=600&auto=format&fit=crop', available: true },
-  // Merchandise
-  { id: 21, name: 'Cafe Mug', price: 450, category: 'merch', image: 'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 22, name: 'Coffee Beans 250g', price: 650, category: 'merch', image: 'https://images.unsplash.com/photo-1559525839-b184a4d698c7?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 23, name: 'Canvas Tote Bag', price: 350, category: 'merch', image: 'https://images.unsplash.com/photo-1544816155-12df9643f363?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 24, name: 'Insulated Tumbler', price: 850, category: 'merch', image: 'https://images.unsplash.com/photo-1582121516243-7f28edfe25e0?q=80&w=600&auto=format&fit=crop', available: true },
+  // Italian
+  { id: 101, name: 'Margherita Pizza', price: 450, category: 'italian', calories: 800, image: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 102, name: 'Penne Arrabbiata', price: 380, category: 'italian', calories: 650, image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 103, name: 'Classic Lasagna', price: 520, category: 'italian', calories: 950, image: 'https://images.unsplash.com/photo-1619881589316-56c7f9e6b587?q=80&w=600&auto=format&fit=crop', available: true },
+  // Continental
+  { id: 201, name: 'Caesar Salad', price: 290, category: 'continental', calories: 340, image: 'https://images.unsplash.com/photo-1550304943-4f24f54ddde9?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 202, name: 'Grilled Chicken Steak', price: 580, category: 'continental', calories: 680, image: 'https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 203, name: 'Avocado Toast', price: 320, category: 'continental', calories: 420, image: 'https://images.unsplash.com/photo-1603048297172-c92544798d5e?q=80&w=600&auto=format&fit=crop', available: true },
+  // Chinese
+  { id: 301, name: 'Hakka Noodles', price: 260, category: 'chinese', calories: 410, image: 'https://images.unsplash.com/photo-1585032226651-759b368d7246?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 302, name: 'Veg Manchurian', price: 280, category: 'chinese', calories: 380, image: 'https://plus.unsplash.com/premium_photo-1661600135894-0d32bb57a912?q=80&w=600&auto=format&fit=crop', available: true },
+  // Korean
+  { id: 401, name: 'Spicy Ramen', price: 420, category: 'korean', calories: 530, image: 'https://images.unsplash.com/photo-1552611052-33e04de081de?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 402, name: 'Bibimbap', price: 480, category: 'korean', calories: 620, image: 'https://images.unsplash.com/photo-1583224964978-225ddb3ea18e?q=80&w=600&auto=format&fit=crop', available: true },
+  // Indian
+  { id: 501, name: 'Paneer Butter Masala', price: 340, category: 'indian', calories: 480, image: 'https://images.unsplash.com/photo-1631452180519-c014fe946bc0?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 502, name: 'Chicken Biryani', price: 450, category: 'indian', calories: 720, image: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 503, name: 'Samosa Chaat', price: 180, category: 'indian', calories: 350, image: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?q=80&w=600&auto=format&fit=crop', available: true },
+  // Beverages
+  { id: 601, name: 'Latte Macchiato', price: 180, category: 'beverages', calories: 120, image: 'https://images.unsplash.com/photo-1593443320739-77f74939d0da?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 602, name: 'Iced Caramel Cafe', price: 220, category: 'beverages', calories: 240, image: 'https://images.unsplash.com/photo-1461023058943-07cb84a0d8da?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 603, name: 'Matcha Boba', price: 260, category: 'beverages', calories: 180, image: 'https://images.unsplash.com/photo-1558857463-bd150a006cbd?q=80&w=600&auto=format&fit=crop', available: false },
+  // Desserts
+  { id: 701, name: 'Chocolate Brownie', price: 210, category: 'desserts', calories: 450, image: 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 702, name: 'Cheesecake', price: 280, category: 'desserts', calories: 510, image: 'https://images.unsplash.com/photo-1524351199678-941a58a3df50?q=80&w=600&auto=format&fit=crop', available: true },
 ];
 
 export default function POSLayout({ onNavigate }) {
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState([]);
+  const [showPayment, setShowPayment] = useState(false);
+
+  const cartTotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const cartTotalWithTax = cartTotal * 1.05; // 5% tax
 
   const filteredProducts = mockProducts.filter(p => {
     const matchesCat = activeCategory === 'all' || p.category === activeCategory;
@@ -127,9 +128,19 @@ export default function POSLayout({ onNavigate }) {
           cartItems={cart} 
           updateQuantity={updateQuantity} 
           clearCart={() => setCart([])}
-          onPay={() => alert("Payment screen sliding in...")}
+          onPay={() => setShowPayment(true)}
         />
       </div>
+
+      <PaymentScreen 
+        isOpen={showPayment} 
+        onClose={() => setShowPayment(false)}
+        total={cartTotalWithTax}
+        onPaymentSuccess={() => {
+          setCart([]);
+          setShowPayment(false);
+        }}
+      />
 
       {/* Global generic animations override just for this layout */}
       <style>{`

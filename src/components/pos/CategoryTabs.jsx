@@ -1,12 +1,14 @@
 import React from 'react';
 
 const categories = [
-  { id: 'all', name: 'All Items' },
-  { id: 'coffee', name: 'Hot Coffee' },
-  { id: 'iced', name: 'Iced Beverages' },
-  { id: 'pastry', name: 'Pastries' },
-  { id: 'food', name: 'Hot Food' },
-  { id: 'merch', name: 'Merchandise' },
+  { id: 'all', name: 'All 🍽️' },
+  { id: 'italian', name: 'Italian 🍝' },
+  { id: 'continental', name: 'Continental 🥗' },
+  { id: 'chinese', name: 'Chinese 🥡' },
+  { id: 'korean', name: 'Korean 🍜' },
+  { id: 'indian', name: 'Indian 🍛' },
+  { id: 'beverages', name: 'Beverages ☕' },
+  { id: 'desserts', name: 'Desserts 🍰' },
 ];
 
 export default function CategoryTabs({ activeCategory, onSelect }) {
