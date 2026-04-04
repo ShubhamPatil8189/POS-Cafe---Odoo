@@ -11,8 +11,9 @@ function formatCategory(slug) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export default function ProductManagement() {
+export default function ProductManagement({ user }) {
   const { products, updateProduct, kitchenProductCount } = useProductCatalog();
+  const isAdmin = user?.role === 'admin';
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
 
@@ -171,15 +172,16 @@ export default function ProductManagement() {
                       type="button"
                       role="switch"
                       aria-checked={on}
+                      disabled={!isAdmin}
                       aria-label={`Kitchen for ${p.name}`}
                       onClick={() =>
-                        updateProduct(p.id, { sendToKitchen: !on })
+                        isAdmin && updateProduct(p.id, { sendToKitchen: !on })
                       }
                       className={`relative inline-flex h-9 w-[3.25rem] shrink-0 items-center rounded-full border-2 transition-all duration-300 ${
                         on
                           ? 'border-orange-400 bg-gradient-to-r from-orange-500 to-amber-500 shadow-md shadow-orange-500/25'
                           : 'border-border bg-surface-hover'
-                      }`}
+                      } ${!isAdmin ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
                       <span
                         className={`inline-block h-7 w-7 transform rounded-full bg-white shadow-md transition-transform duration-300 ${

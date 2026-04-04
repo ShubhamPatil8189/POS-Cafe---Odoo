@@ -8,6 +8,7 @@ import TableCard from '../floorplan/TableCard';
  * `resolveTable` lets KDS stages override card state without changing base table data.
  */
 export default function TableGrid({
+  isAdmin,
   activeFloor,
   onFloorChange,
   floors = ['ground', 'first'],
@@ -69,7 +70,7 @@ export default function TableGrid({
                 >
                   {f} Floor
                 </button>
-                {activeFloor === f && (
+                {isAdmin && activeFloor === f && (
                   <button 
                     onClick={(e) => { e.stopPropagation(); setFloorToDelete(f); }}
                     className="absolute -top-1 -right-1 z-10 p-1 bg-white hover:bg-rose-50 text-rose-500 rounded-full shadow-md border border-rose-100 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -80,22 +81,26 @@ export default function TableGrid({
                 )}
               </div>
             ))}
-            <button 
-              onClick={() => setShowAddFloorModal(true)}
-              className="ml-2 w-8 h-8 rounded-full flex items-center justify-center bg-slate-50 hover:bg-primary-50 text-slate-400 hover:text-indigo-600 transition-colors"
-              title="Add Floor"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
+            {isAdmin && (
+              <button 
+                onClick={() => setShowAddFloorModal(true)}
+                className="ml-2 w-8 h-8 rounded-full flex items-center justify-center bg-slate-50 hover:bg-primary-50 text-slate-400 hover:text-indigo-600 transition-colors"
+                title="Add Floor"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setShowAddTableModal(true)}
-              className="px-3 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-bold text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 shadow-sm flex items-center gap-1.5 transition-colors"
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              Add Table
-            </button>
+            {isAdmin && (
+              <button 
+                onClick={() => setShowAddTableModal(true)}
+                className="px-3 py-1.5 bg-white border border-slate-200 rounded-full text-xs font-bold text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 shadow-sm flex items-center gap-1.5 transition-colors"
+              >
+                <PlusCircle className="w-3.5 h-3.5" />
+                Add Table
+              </button>
+            )}
             <div className="px-4 py-2 bg-indigo-600 text-white rounded-full text-sm font-black shadow-lg shadow-indigo-600/30">
               Total: ₹{sessionSalesTotal.toFixed(2)}
             </div>
@@ -167,13 +172,15 @@ export default function TableGrid({
                   )}
                   <div className="relative z-10 w-full h-full cursor-pointer">
                     <TableCard table={display} onClick={onTableClick} />
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); setTableToDelete(t.id); }}
-                      className="absolute top-0 right-0 z-20 p-2 m-2 bg-white/90 backdrop-blur hover:bg-rose-50 text-slate-300 hover:text-rose-500 rounded-full shadow-sm border border-slate-100 opacity-0 group-hover:opacity-100 transition-all scale-90 hover:scale-100 active:scale-95"
-                      title="Delete Table"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {isAdmin && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setTableToDelete(t.id); }}
+                        className="absolute top-0 right-0 z-20 p-2 m-2 bg-white/90 backdrop-blur hover:bg-rose-50 text-slate-300 hover:text-rose-500 rounded-full shadow-sm border border-slate-100 opacity-0 group-hover:opacity-100 transition-all scale-90 hover:scale-100 active:scale-95"
+                        title="Delete Table"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
