@@ -15,12 +15,14 @@ export default function PaymentScreen({ isOpen, onClose, total, cartItems, payme
   const [activePaymentId, setActivePaymentId] = useState(null);
   const [activeOrderId, setActiveOrderId] = useState(null);
   const [selectedMethod, setSelectedMethod] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   // Reset state when opened
   useEffect(() => {
     if (isOpen) {
       setPaymentState('select');
       setSelectedMethod('');
+      setErrorMessage('');
     }
   }, [isOpen]);
 
@@ -51,9 +53,17 @@ export default function PaymentScreen({ isOpen, onClose, total, cartItems, payme
     frame();
   };
 
-  // ──────────────── CREATE ORDER HELPER ──────────────── //
-  const createOrderWithItems = async () => {
+  // ──────────────── CREATE OR GET ORDER HELPER ──────────────── //
+  const getOrCreateOrder = async () => {
     const token = localStorage.getItem('token');
+    
+    if (orderId) {
+      const orderRes = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!orderRes.ok) throw new Error('Failed to fetch existing order');
+      return await orderRes.json();
+    }
     
     // 1. Create Draft Order
     const orderRes = await fetch(`${API_BASE_URL}/orders`, {
@@ -88,7 +98,7 @@ export default function PaymentScreen({ isOpen, onClose, total, cartItems, payme
     const token = localStorage.getItem('token');
     try {
       setPaymentState('processing');
-      const order = await createOrderWithItems();
+      const order = await getOrCreateOrder();
       setActiveOrderId(order.id);
 
       if (method.type === 'cash') {
@@ -190,6 +200,7 @@ export default function PaymentScreen({ isOpen, onClose, total, cartItems, payme
 
     } catch (err) {
       console.error(err);
+      setErrorMessage(err.message || String(err) || 'Payment initialization failed.');
       setPaymentState('error');
     }
   };
@@ -215,6 +226,7 @@ export default function PaymentScreen({ isOpen, onClose, total, cartItems, payme
       setTimeout(onPaymentSuccess, 2000);
     } catch (err) {
        console.error(err);
+       setErrorMessage(err.message || String(err) || 'UPI confirmation failed.');
        setPaymentState('error');
     }
   };
@@ -456,7 +468,7 @@ export default function PaymentScreen({ isOpen, onClose, total, cartItems, payme
                     
                     <h2 className="text-3xl font-black mb-2">Payment Failed</h2>
                     <p className="text-white/80 font-medium text-center px-6">
-                      There was a problem processing this transaction.
+                      {errorMessage || "There was a problem processing this transaction."}
                     </p>
 
                     <div className="mt-12 w-full max-w-xs space-y-3">

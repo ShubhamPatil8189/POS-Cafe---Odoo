@@ -77,7 +77,6 @@ function Divider() {
 
 // ─── Showcase App ─── //
 export default function App() {
-  const [activeView, setActiveView] = useState('dashboard'); // 'login', 'signup', 'dashboard', 'pos', 'design'
   const [activeItem, setActiveItem] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
@@ -86,12 +85,39 @@ export default function App() {
   const [showModal, setShowModal] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // -- Session State --
-  const [session, setSession] = useState({
-    status: 'closed',
-    openingBalance: 0,
-    sales: { cash: 0, digital: 0 }
+  // Persisted state initializers
+  const [activeView, setActiveView] = useState(() => {
+    try {
+      const savedView = localStorage.getItem('cafe-active-view');
+      const savedSession = JSON.parse(localStorage.getItem('cafe-session'));
+      
+      // If they had an open session, always force them back to the POS so they don't skip the flow.
+      if (savedSession?.status === 'open') return 'pos';
+      if (savedView) return savedView;
+    } catch (e) {}
+    return 'dashboard'; // 'login', 'signup', 'dashboard', 'pos'
   });
+
+  const [session, setSession] = useState(() => {
+    try {
+      const savedSession = localStorage.getItem('cafe-session');
+      if (savedSession) return JSON.parse(savedSession);
+    } catch (e) {}
+    return {
+      status: 'closed',
+      openingBalance: 0,
+      sales: { cash: 0, digital: 0 }
+    };
+  });
+
+  // Persistence hooks
+  useEffect(() => {
+    localStorage.setItem('cafe-active-view', activeView);
+  }, [activeView]);
+
+  useEffect(() => {
+    localStorage.setItem('cafe-session', JSON.stringify(session));
+  }, [session]);
   const [lastSessionInfo, setLastSessionInfo] = useState(null);
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);

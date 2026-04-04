@@ -185,8 +185,8 @@ exports.createRazorpayOrder = async (req, res) => {
       currency: "INR",
       receipt: `receipt_order_${order.id}`,
       notes: {
-        orderId: order.id,
-        orderNumber: order.order_number
+        orderId: String(order.id),
+        orderNumber: String(order.order_number)
       }
     };
 
@@ -201,6 +201,7 @@ exports.createRazorpayOrder = async (req, res) => {
     });
 
   } catch (error) {
+    require('fs').appendFileSync('error.log', 'Create Razorpay Order Error: ' + error.stack + '\n');
     console.error('Create Razorpay Order error:', error);
     res.status(500).json({ error: 'Failed to create Razorpay order.' });
   }
@@ -311,6 +312,7 @@ exports.verifyRazorpayPayment = async (req, res) => {
     }
 
   } catch (error) {
+    require('fs').appendFileSync('error.log', 'Verify Razorpay Payment error: ' + error.stack + '\n');
     console.error('Verify Razorpay Payment error:', error);
     res.status(500).json({ error: 'Failed to verify payment.' });
   }

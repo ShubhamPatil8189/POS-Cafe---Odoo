@@ -215,6 +215,7 @@ exports.addItem = async (req, res) => {
     res.status(201).json(created[0]);
   } catch (error) {
     await connection.rollback();
+    require('fs').appendFileSync('error.log', 'Add item error: ' + error.stack + '\n');
     console.error('Add item error:', error);
     res.status(500).json({ error: 'Failed to add item to order.' });
   } finally {

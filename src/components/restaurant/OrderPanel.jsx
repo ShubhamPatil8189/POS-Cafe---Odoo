@@ -23,28 +23,6 @@ export default function OrderPanel({
   onSendToKitchen,
   onPay,
 }) {
-  if (!selectedTable) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center p-12 text-center relative overflow-hidden bg-gradient-to-br from-surface-base to-slate-50">
-        <div className="absolute w-[200%] h-64 bg-primary-100/30 -rotate-12 blur-3xl pointer-events-none" />
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative z-10 w-24 h-24 bg-white shadow-xl shadow-black/5 rounded-3xl flex items-center justify-center mb-6 border border-border"
-        >
-          <MapPin className="w-10 h-10 text-primary-500" />
-        </motion.div>
-        <h2 className="text-3xl font-black text-text-primary tracking-tight mb-3">
-          No Table Selected
-        </h2>
-        <p className="text-lg text-text-secondary max-w-sm">
-          Tap on any available or occupied table on the left floor plan to manage its
-          orders and payments.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <>
       <div className="flex-1 flex flex-col min-w-0 border-r border-border">
@@ -59,20 +37,20 @@ export default function OrderPanel({
                   Ordering For
                 </p>
                 <h2 className="text-xl font-black text-text-primary leading-none">
-                  Table {selectedTable.number}
+                  Table {selectedTable?.number ?? '--'}
                 </h2>
               </div>
             </div>
             <div
               className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase ${
-                selectedTable.state === 'available'
+                selectedTable?.state === 'available'
                   ? 'bg-surface-hover'
-                  : selectedTable.state === 'occupied'
+                  : selectedTable?.state === 'occupied'
                     ? 'bg-success-100 text-success-700'
                     : 'bg-primary-100 text-primary-700'
               }`}
             >
-              {selectedTable.state}
+              {selectedTable?.state ?? '--'}
             </div>
           </div>
           <div className="relative group">
@@ -107,7 +85,7 @@ export default function OrderPanel({
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-5 custom-scrollbar bg-surface-base/50">
-          <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4">
             {filteredProducts.map((p) => (
               <div key={p.id} className="animate-scale-in">
                 <ProductCard product={p} onAdd={addToCart} />
@@ -130,7 +108,7 @@ export default function OrderPanel({
             <Receipt className="w-12 h-12 text-text-tertiary mb-4 opacity-50" />
             <p className="font-bold text-text-secondary">No items added</p>
             <p className="text-sm text-text-tertiary mt-2">
-              Select items from the menu to build the order for Table {selectedTable.number}.
+              Select items from the menu to build the order for Table {selectedTable?.number ?? '--'}.
             </p>
           </div>
         )}

@@ -1,0 +1,14 @@
+CREATE TABLE `payments` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `order_id` int DEFAULT NULL,
+  `method_id` int DEFAULT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `status` enum('pending','completed','failed','refunded') DEFAULT 'pending',
+  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
+  `transaction_id` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`) /*T![clustered_index] CLUSTERED */,
+  KEY `fk_1` (`order_id`),
+  KEY `fk_2` (`method_id`),
+  CONSTRAINT `fk_1` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_2` FOREIGN KEY (`method_id`) REFERENCES `payment_methods` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin AUTO_INCREMENT=150001
