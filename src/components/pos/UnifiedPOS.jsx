@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { motion, LayoutGroup } from 'framer-motion';
 import { Banknote, CreditCard, Power, LogOut } from 'lucide-react';
 
 import PaymentScreen from './PaymentScreen';
@@ -221,35 +222,62 @@ export default function UnifiedPOS({
       <Navbar currentView={posMainView} onViewChange={setPosMainView} />
 
       {posMainView === 'tables' && (
-        <div className="relative flex flex-1 overflow-hidden">
+        <div className="relative flex flex-1 overflow-hidden bg-background">
           <div className="pointer-events-none absolute left-[-10%] top-[-20%] h-[40rem] w-[40rem] rounded-full bg-amber-400/5 blur-[100px]" />
-          <TableGrid
-            activeFloor={activeFloor}
-            onFloorChange={setActiveFloor}
-            tables={currentTables}
-            selectedTable={selectedTable}
-            onTableClick={handleTableClick}
-            sessionSalesTotal={sessionSalesTotal}
-            resolveTable={resolveTable}
-          />
-          <div className="relative z-0 flex h-full w-[55%] bg-[#FCFCFD]">
-            <OrderPanel
-              selectedTable={selectedTable}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              activeCategory={activeCategory}
-              onCategoryChange={setActiveCategory}
-              categoryTabs={categoryTabs}
-              filteredProducts={filteredProducts}
-              addToCart={addToCart}
-              cart={cart}
-              updateQuantity={updateQuantity}
-              clearCart={() => setCart([])}
-              cartTotalWithTax={cartTotalWithTax}
-              onSendToKitchen={handlePlaceOrder}
-              onPay={() => setShowPayment(true)}
-            />
-          </div>
+          
+          <LayoutGroup>
+            <motion.div
+              layout
+              initial={false}
+              animate={{ 
+                width: selectedTable ? '15%' : '100%', 
+                minWidth: selectedTable ? '260px' : '100%' 
+              }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="h-full z-10 flex shrink-0 border-r border-border"
+            >
+              <TableGrid
+                activeFloor={activeFloor}
+                onFloorChange={setActiveFloor}
+                tables={currentTables}
+                selectedTable={selectedTable}
+                onTableClick={handleTableClick}
+                sessionSalesTotal={sessionSalesTotal}
+                resolveTable={resolveTable}
+                isCollapsed={!!selectedTable}
+              />
+            </motion.div>
+
+            <motion.div
+              layout
+              initial={false}
+              animate={{ 
+                opacity: selectedTable ? 1 : 0, 
+                x: selectedTable ? 0 : 20, 
+                width: selectedTable ? '85%' : '0%',
+                flex: selectedTable ? 1 : 0
+              }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className={`relative z-0 flex h-full bg-[#FCFCFD] shrink-0 overflow-hidden ${!selectedTable && 'pointer-events-none'}`}
+            >
+              <OrderPanel
+                selectedTable={selectedTable}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                activeCategory={activeCategory}
+                onCategoryChange={setActiveCategory}
+                categoryTabs={categoryTabs}
+                filteredProducts={filteredProducts}
+                addToCart={addToCart}
+                cart={cart}
+                updateQuantity={updateQuantity}
+                clearCart={() => setCart([])}
+                cartTotalWithTax={cartTotalWithTax}
+                onSendToKitchen={handlePlaceOrder}
+                onPay={() => setShowPayment(true)}
+              />
+            </motion.div>
+          </LayoutGroup>
         </div>
       )}
 
