@@ -10,23 +10,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
-<<<<<<< HEAD
     "@tailwindcss/vite": "^4.2.2",
+    "axios": "^1.14.0",
     "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.7.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.14.0",
-    "tailwindcss": "^4.2.2"
-=======
-    "axios": "^1.14.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "react-router-dom": "^7.14.0",
     "recharts": "^3.8.1",
-    "socket.io-client": "^4.8.3"
->>>>>>> 41017e8b3191164f98fa1c469544a73c868f5f26
+    "socket.io-client": "^4.8.3",
+    "tailwindcss": "^4.2.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
