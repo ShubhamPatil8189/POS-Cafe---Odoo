@@ -1,0 +1,2 @@
+◇ injecting env (8) from .env // tip: ⌘ suppress logs { quiet: true }
+✅ TiDB Cloud connected successfully

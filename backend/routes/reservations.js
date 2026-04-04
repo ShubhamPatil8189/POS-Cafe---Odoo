@@ -2,6 +2,9 @@ const express = require('express');
 const { pool } = require('../db.js');
 
 const router = express.Router();
+const auth = require('../middleware/auth');
+
+router.use(auth);
 
 // GET /api/ModuleB_reservations
 router.get('/', async (req, res) => {
