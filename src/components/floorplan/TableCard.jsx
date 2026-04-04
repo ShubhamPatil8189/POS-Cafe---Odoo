@@ -36,6 +36,14 @@ export default function TableCard({ table, onClick }) {
       text: 'text-primary-800',
       subtext: 'text-primary-700/80',
       badge: 'bg-primary-500 text-white'
+    },
+    blocked: {
+      bg: 'bg-[#EF4444]/10',
+      border: 'border-[#EF4444]',
+      shadow: 'shadow-md shadow-[#EF4444]/10',
+      text: 'text-[#991B1B]',
+      subtext: 'text-[#991B1B]/80',
+      badge: 'bg-[#EF4444] text-white'
     }
   };
 
@@ -44,15 +52,15 @@ export default function TableCard({ table, onClick }) {
   return (
     <motion.button
       whileHover={table.state !== 'inactive' ? { scale: 1.02, y: -2, boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05)' } : {}}
-      whileTap={table.state !== 'inactive' ? { scale: 0.98 } : {}}
-      onClick={() => table.state !== 'inactive' && onClick(table)}
+      whileTap={table.state !== 'inactive' && table.state !== 'blocked' ? { scale: 0.98 } : {}}
+      onClick={() => table.state !== 'inactive' && table.state !== 'blocked' && onClick(table)}
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      disabled={table.state === 'inactive'}
+      disabled={table.state === 'inactive' || table.state === 'blocked'}
       className={`
         relative flex flex-col items-center justify-center p-6 
-        rounded-3xl aspect-square transition-colors duration-300 border
+        rounded-3xl aspect-square transition-colors duration-300 border overflow-hidden
         ${table.state === 'inactive' ? 'opacity-40 cursor-not-allowed bg-slate-50 border-slate-200' : 'cursor-pointer'}
         ${currentStyle.bg} ${currentStyle.border}
       `}

@@ -51,7 +51,7 @@ function loadPersisted() {
 
 const OrderContext = createContext(null);
 
-export function OrderProvider({ children }) {
+export function OrderProvider({ children, onExternalPayment }) {
   const persisted = useRef(loadPersisted());
   const [orders, setOrders] = useState(() => persisted.current?.orders ?? []);
   const [nextOrderId, setNextOrderId] = useState(
@@ -94,7 +94,7 @@ export function OrderProvider({ children }) {
    * @returns {boolean} true if at least one kitchen ticket was created
    */
   const sendToKitchen = useCallback(
-    (tableNumber, cart) => {
+    (tableNumber, cart, isPaid = false) => {
       const lines = kitchenLinesFromCart(cart);
       if (lines.length === 0) {
         pushToast('Add a kitchen item (pizza, pasta, burger…) to send to KDS', 'preparing');
@@ -109,7 +109,7 @@ export function OrderProvider({ children }) {
         items: lines,
         status: 'toCook',
         createdAt: Date.now(),
-        paid: false,
+        paid: isPaid,
         source: 'pos',
       };
 
@@ -124,22 +124,18 @@ export function OrderProvider({ children }) {
 
   const advanceOrder = useCallback(
     (orderId) => {
-      setOrders((prev) =>
-        prev.map((o) => {
-          if (o.id !== orderId) return o;
-          if (o.status === 'toCook') {
-            pushToast('Cooking Started 🔥', 'preparing');
-            return { ...o, status: 'preparing' };
-          }
-          if (o.status === 'preparing') {
-            pushToast('Order Ready ✅', 'success');
-            return { ...o, status: 'completed' };
-          }
-          return o;
-        })
-      );
+      const order = orders.find(o => o.id === orderId);
+      if (!order) return;
+
+      if (order.status === 'toCook') {
+        pushToast('Cooking Started 🔥', 'preparing');
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'preparing' } : o));
+      } else if (order.status === 'preparing') {
+        pushToast('Order Ready ✅', 'success');
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'completed', completedAt: Date.now() } : o));
+      }
     },
-    [pushToast]
+    [orders, pushToast]
   );
 
   const toggleItemPrepared = useCallback((orderId, itemIndex) => {
@@ -156,12 +152,16 @@ export function OrderProvider({ children }) {
 
   const markPaid = useCallback(
     (orderId) => {
-      setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, paid: true } : o))
-      );
-      pushToast('Payment Completed ✔', 'success');
+      const order = orders.find(o => o.id === orderId);
+      if (order && !order.paid) {
+        if (onExternalPayment) {
+          setTimeout(() => onExternalPayment(order.tableNumber), 0);
+        }
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, paid: true } : o)));
+        pushToast('Payment Completed ✔', 'success');
+      }
     },
-    [pushToast]
+    [orders, pushToast, onExternalPayment]
   );
 
   const ordersByStatus = useMemo(() => {
