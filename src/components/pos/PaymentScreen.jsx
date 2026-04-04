@@ -10,11 +10,13 @@ import confetti from 'canvas-confetti';
 export default function PaymentScreen({ isOpen, onClose, total, onPaymentSuccess }) {
   // states: 'select' | 'upi_qr' | 'processing' | 'success' | 'error'
   const [paymentState, setPaymentState] = useState('select');
+  const [selectedMethod, setSelectedMethod] = useState('');
 
   // Reset state when opened
   useEffect(() => {
     if (isOpen) {
       setPaymentState('select');
+      setSelectedMethod('');
     }
   }, [isOpen]);
 
@@ -46,6 +48,7 @@ export default function PaymentScreen({ isOpen, onClose, total, onPaymentSuccess
   };
 
   const handleSelectMethod = (method) => {
+    setSelectedMethod(method);
     if (method === 'upi') {
       setPaymentState('upi_qr');
     } else {
@@ -54,22 +57,24 @@ export default function PaymentScreen({ isOpen, onClose, total, onPaymentSuccess
       setTimeout(() => {
         setPaymentState('success');
         triggerConfetti();
-        setTimeout(onPaymentSuccess, 2000); // clear cart back out
+        // Notify parent on success with payment method
+        setTimeout(() => {
+          onPaymentSuccess(method);
+        }, 2000);
       }, 1500);
     }
   };
 
   const simulateUPIPayment = (success = true) => {
     setPaymentState('processing');
-    setTimeout(() => {
-      if (success) {
+      setTimeout(() => {
         setPaymentState('success');
         triggerConfetti();
-        setTimeout(onPaymentSuccess, 2500);
-      } else {
-        setPaymentState('error');
-      }
-    }, 2000);
+        // Notify parent on success with payment method
+        setTimeout(() => {
+          onPaymentSuccess('upi');
+        }, 3000);
+      }, 2000);
   };
 
   return (
