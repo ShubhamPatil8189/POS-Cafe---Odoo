@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, CheckCircle2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Mail, Lock, User, CheckCircle2, ShieldCheck, Users } from 'lucide-react';
 import AuthLayout from './AuthLayout';
 import AuthInput from './AuthInput';
 import AuthButton from './AuthButton';
@@ -8,10 +9,11 @@ import API_BASE_URL from '../../config';
 
 export default function Signup({ onNavigate }) {
   const [formData, setFormData] = useState({
-    name: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    role: 'staff',
+    adminCode: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -51,7 +53,8 @@ export default function Signup({ onNavigate }) {
           name: formData.name,
           email: formData.email,
           password: formData.password,
-          role: 'admin' // Defaulting to admin for testing
+          role: formData.role,
+          adminCode: formData.adminCode
         })
       });
 
@@ -78,12 +81,63 @@ export default function Signup({ onNavigate }) {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 text-sm rounded">
+        <div className="mb-6 p-3 bg-red-100 border border-red-400 text-red-700 text-sm rounded-xl">
           {error}
         </div>
       )}
 
+      {/* Role Selection Chips */}
+      <div className="mb-6">
+        <p className="text-xs font-bold text-text-tertiary uppercase tracking-widest mb-3">Join as</p>
+        <div className="flex gap-3">
+          {[
+            { id: 'staff', label: 'Staff Member', icon: Users },
+            { id: 'admin', label: 'Administrator', icon: ShieldCheck }
+          ].map((r) => {
+            const Icon = r.icon;
+            const isSelected = formData.role === r.id;
+            return (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => setFormData({ ...formData, role: r.id })}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-2xl border-2 transition-all ${
+                  isSelected 
+                    ? 'border-primary-500 bg-primary-50/50 text-primary-700 shadow-sm' 
+                    : 'border-border bg-white text-text-secondary hover:border-slate-300'
+                }`}
+              >
+                <Icon className={`w-4 h-4 ${isSelected ? 'text-primary-600' : 'text-slate-400'}`} />
+                <span className="font-bold text-sm">{r.label}</span>
+                {isSelected && (
+                  <motion.div layoutId="signupRole" className="absolute" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-4">
+        {formData.role === 'admin' && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }} 
+            animate={{ opacity: 1, scale: 1 }}
+            className="p-4 bg-amber-50/50 border border-amber-200/50 rounded-2xl"
+          >
+            <AuthInput 
+              id="adminCode"
+              label="Admin Security Code"
+              type="text"
+              placeholder="Enter 4-digit code"
+              icon={ShieldCheck}
+              value={formData.adminCode}
+              onChange={(e) => setFormData({ ...formData, adminCode: e.target.value })}
+              required
+            />
+            <p className="mt-2 text-[11px] text-amber-700 font-medium">Secured with port code of your development 5173</p>
+          </motion.div>
+        )}
         <AuthInput
           id="name"
           label="Full Name"

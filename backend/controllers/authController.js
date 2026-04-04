@@ -22,6 +22,11 @@ exports.signup = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Admin security check
+    if (role === 'admin' && req.body.adminCode !== '5173') {
+      return res.status(403).json({ error: 'Invalid administrative security code.' });
+    }
+
     // Insert user
     const [result] = await pool.query(
       'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',

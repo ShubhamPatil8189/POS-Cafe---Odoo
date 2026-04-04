@@ -31,5 +31,10 @@ export default function Root() {
     );
   }
 
-  return <App />;
+  return (
+    <>
+      <style>{`aside, .sidebar, #sidebar { display: none !important; margin: 0 !important; width: 0 !important; overflow: hidden !important; }`}</style>
+      <App />
+    </>
+  );
 }
