@@ -1,6 +1,6 @@
-import mysql from 'mysql2/promise';
-import dotenv from 'dotenv';
-dotenv.config();
+const mysql = require('mysql2/promise');
+require('dotenv').config();
+
 
 const pool = mysql.createPool({
   host: process.env.TIDB_HOST || process.env.DB_HOST,
@@ -17,7 +17,7 @@ const pool = mysql.createPool({
   queueLimit: 0
 });
 
-export const initDB = async () => {
+const initDB = async () => {
   try {
     const connection = await pool.getConnection();
     console.log('✅ Connected to TiDB database successfully.');
@@ -127,4 +127,4 @@ export const initDB = async () => {
   }
 };
 
-export default pool;
+module.exports = { pool, initDB };
