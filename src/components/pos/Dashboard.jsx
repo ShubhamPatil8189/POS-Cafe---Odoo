@@ -86,7 +86,7 @@ export default function Dashboard({ session, lastSessionInfo, onOpenSessionClick
                       <p className="text-sm font-medium text-text-primary">Closed on {new Date(lastSessionInfo.endTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</p>
                     </div>
                     <span className="px-3 py-1 bg-surface-hover rounded-full text-xs font-bold text-text-secondary">
-                      ₹{lastSessionInfo.difference > 0 ? '+' : ''}{lastSessionInfo.difference.toFixed(2)} Variance
+                      ₹{lastSessionInfo.difference > 0 ? '+' : ''}{(lastSessionInfo.difference || 0).toFixed(2)} Variance
                     </span>
                   </div>
 
@@ -95,13 +95,13 @@ export default function Dashboard({ session, lastSessionInfo, onOpenSessionClick
                       <div className="flex items-center gap-2 text-text-secondary mb-1">
                          <DollarSign className="w-4 h-4" /> <span className="text-xs font-bold uppercase tracking-wider">Total Sales</span>
                       </div>
-                      <p className="text-3xl font-black tabular-nums">₹{lastSessionInfo.totalSales.toFixed(2)}</p>
+                      <p className="text-3xl font-black tabular-nums">₹{(lastSessionInfo.totalSales || 0).toFixed(2)}</p>
                     </div>
                     <div>
                       <div className="flex items-center gap-2 text-text-secondary mb-1">
                          <CreditCard className="w-4 h-4" /> <span className="text-xs font-bold uppercase tracking-wider">Closing Cash</span>
                       </div>
-                      <p className="text-3xl font-black tabular-nums text-primary-700">₹{lastSessionInfo.closingBalance.toFixed(2)}</p>
+                      <p className="text-3xl font-black tabular-nums text-primary-700">₹{(lastSessionInfo.closingBalance || 0).toFixed(2)}</p>
                     </div>
                   </div>
                 </div>

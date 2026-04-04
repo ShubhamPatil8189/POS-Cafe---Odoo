@@ -17,6 +17,11 @@ import ProductManagement from '../restaurant/ProductManagement';
 export default function UnifiedPOS({
   session,
   tables,
+  floors,
+  onAddFloor,
+  onDeleteFloor,
+  onAddTable,
+  onDeleteTable,
   toasts,
   onCloseSessionClick,
   onOrderSent,
@@ -33,6 +38,13 @@ export default function UnifiedPOS({
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState([]);
   const [showPayment, setShowPayment] = useState(false);
+
+  // Automatically gracefully transition to available floor if current active floor gets deleted
+  React.useEffect(() => {
+    if (floors.length > 0 && !floors.includes(activeFloor)) {
+      setActiveFloor(floors[0]);
+    }
+  }, [floors, activeFloor]);
 
   const currentTables = tables.filter((t) => t.floor === activeFloor);
 
@@ -239,7 +251,12 @@ export default function UnifiedPOS({
               <TableGrid
                 activeFloor={activeFloor}
                 onFloorChange={setActiveFloor}
+                floors={floors}
+                onAddFloor={onAddFloor}
+                onDeleteFloor={onDeleteFloor}
                 tables={currentTables}
+                onAddTable={onAddTable}
+                onDeleteTable={onDeleteTable}
                 selectedTable={selectedTable}
                 onTableClick={handleTableClick}
                 sessionSalesTotal={sessionSalesTotal}
