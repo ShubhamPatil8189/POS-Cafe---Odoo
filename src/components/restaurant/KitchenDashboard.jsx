@@ -185,7 +185,12 @@ export default function KitchenDashboard() {
           }`}
         >
           {visibleColumns.map((col) => {
-            const list = ordersByStatus[col.id] ?? [];
+            let list = ordersByStatus[col.id] ?? [];
+            if (col.id === 'completed') {
+              list = [...list]
+                .sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
+                .slice(0, 5);
+            }
             return (
               <section
                 key={col.id}
