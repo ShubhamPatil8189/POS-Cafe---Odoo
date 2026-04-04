@@ -4,19 +4,40 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
+<<<<<<< HEAD
     "start": "node server.js",
     "dev": "node --watch server.js",
     "seed": "node db/seed.js"
+=======
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "seed": "node seed.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+>>>>>>> 41017e8b3191164f98fa1c469544a73c868f5f26
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "Odoo POS Cafe Backend Server",
   "dependencies": {
+<<<<<<< HEAD
     "cors": "^2.8.5",
     "express": "^5.2.1",
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.0",
     "better-sqlite3": "^11.0.0"
+=======
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.0",
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mysql2": "^3.20.0",
+    "pdfkit": "^0.18.0",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.3",
+    "uuid": "^13.0.0"
+>>>>>>> 41017e8b3191164f98fa1c469544a73c868f5f26
   }
 }

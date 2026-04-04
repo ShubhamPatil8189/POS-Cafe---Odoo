@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { Router } from 'express';
 import QRCode from 'qrcode';
 const router = Router();
@@ -97,3 +98,23 @@ router.get('/qr', async (req, res) => {
 });
 
 export default router;
+=======
+const express = require('express');
+const router = express.Router();
+const paymentController = require('../controllers/paymentController');
+const auth = require('../middleware/auth');
+
+// Protect all payment routes
+router.use(auth);
+
+// POST /api/payments — Create pending payment
+router.post('/', paymentController.createPayment);
+
+// POST /api/payments/validate — Process successful payment
+router.post('/validate', paymentController.validatePayment);
+
+// GET /api/payments/upi-qr/:orderId — Generate UPI QR code for an order
+router.get('/upi-qr/:orderId', paymentController.generateUPIQR);
+
+module.exports = router;
+>>>>>>> 41017e8b3191164f98fa1c469544a73c868f5f26
