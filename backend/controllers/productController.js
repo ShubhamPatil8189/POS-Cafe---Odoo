@@ -10,6 +10,8 @@ exports.getAll = async (req, res) => {
       ORDER BY p.id ASC
     `);
 
+    // Fetch variants and extras for all products (unchanged)
+
     // Fetch variants and extras for all products
     const productIds = products.map(p => p.id);
 
@@ -34,6 +36,8 @@ exports.getAll = async (req, res) => {
     // Attach variants and extras to each product
     const result = products.map(product => ({
       ...product,
+      image: product.image_url, // Map for frontend
+      available: product.is_active ? true : false, // Map for frontend
       category: {
         id: product.category_id,
         name: product.category_name,
@@ -85,6 +89,7 @@ exports.getById = async (req, res) => {
 
     res.json({
       ...product,
+      image: product.image_url, // Map for frontend
       category: {
         id: product.category_id,
         name: product.category_name,
@@ -103,16 +108,26 @@ exports.getById = async (req, res) => {
 // ── Create Product ─────────────────────────────────────
 exports.create = async (req, res) => {
   try {
-    const { name, category_id, price, tax, uom, description, is_active, send_to_kitchen } = req.body;
+    const { name, category_id, price, tax, uom, description, image_url, is_active, send_to_kitchen } = req.body;
 
     if (!name || !category_id || price === undefined) {
       return res.status(400).json({ error: 'Name, category_id, and price are required.' });
     }
 
     const [result] = await pool.query(
-      `INSERT INTO products (name, category_id, price, tax, uom, description, is_active, send_to_kitchen)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, category_id, price, tax || 0, uom || 'piece', description || null, is_active !== undefined ? is_active : true, send_to_kitchen !== undefined ? send_to_kitchen : true]
+      `INSERT INTO products (name, category_id, price, tax, uom, description, image_url, is_active, send_to_kitchen)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        name, 
+        category_id, 
+        price, 
+        tax || 0, 
+        uom || 'piece', 
+        description || null, 
+        image_url || null,
+        is_active !== undefined ? is_active : true, 
+        send_to_kitchen !== undefined ? send_to_kitchen : true
+      ]
     );
 
     const [created] = await pool.query('SELECT * FROM products WHERE id = ?', [result.insertId]);
@@ -127,7 +142,7 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, category_id, price, tax, uom, description, is_active, send_to_kitchen } = req.body;
+    const { name, category_id, price, tax, uom, description, image_url, is_active, send_to_kitchen } = req.body;
 
     const [existing] = await pool.query('SELECT * FROM products WHERE id = ?', [id]);
     if (existing.length === 0) {
@@ -137,14 +152,17 @@ exports.update = async (req, res) => {
     const p = existing[0];
 
     await pool.query(
-      `UPDATE products SET name = ?, category_id = ?, price = ?, tax = ?, uom = ?, description = ?, is_active = ?, send_to_kitchen = ? WHERE id = ?`,
+      `UPDATE products 
+       SET name = ?, category_id = ?, price = ?, tax = ?, uom = ?, description = ?, image_url = ?, is_active = ?, send_to_kitchen = ? 
+       WHERE id = ?`,
       [
         name || p.name,
-        category_id !== undefined ? category_id : p.category_id,
+        category_id || p.category_id,
         price !== undefined ? price : p.price,
         tax !== undefined ? tax : p.tax,
         uom || p.uom,
         description !== undefined ? description : p.description,
+        image_url !== undefined ? image_url : p.image_url,
         is_active !== undefined ? is_active : p.is_active,
         send_to_kitchen !== undefined ? send_to_kitchen : p.send_to_kitchen,
         id
