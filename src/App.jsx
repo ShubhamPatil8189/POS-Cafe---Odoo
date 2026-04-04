@@ -55,6 +55,7 @@ import UnifiedPOS from './components/pos/UnifiedPOS';
 import { OpenSessionModal, CloseSessionModal } from './components/pos/SessionModals';
 import { OrderProvider } from './components/restaurant/OrderContext';
 import { ProductCatalogProvider } from './context/ProductCatalogContext';
+import SelfOrderMenu from './components/self_order/SelfOrderMenu';
 
 // ─── Section Wrapper ─── //
 function Section({ title, description, children, id }) {
@@ -125,35 +126,41 @@ export default function App() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [toasts, setToasts] = useState([]);
-  const [tables, setTables] = useState([
-    { id: 1, number: 1, seats: 4, floor: 'ground', state: 'available' },
-    { id: 2, number: 2, seats: 2, floor: 'ground', state: 'available' },
-    { id: 3, number: 3, seats: 2, floor: 'ground', state: 'available' },
-    { id: 4, number: 4, seats: 2, floor: 'ground', state: 'available' },
-    { id: 5, number: 5, seats: 4, floor: 'ground', state: 'available' },
-    { id: 6, number: 6, seats: 2, floor: 'ground', state: 'available' },
-    { id: 7, number: 7, seats: 2, floor: 'ground', state: 'available' },
-    { id: 8, number: 8, seats: 2, floor: 'ground', state: 'available' },
-    { id: 9, number: 9, seats: 4, floor: 'ground', state: 'available' },
-    { id: 10, number: 10, seats: 8, floor: 'ground', state: 'available' },
-    { id: 11, number: 101, seats: 4, floor: 'first', state: 'available' },
-    { id: 12, number: 102, seats: 4, floor: 'first', state: 'available' },
-  ]);
+  const [tables, setTables] = useState([]); // Dynamic from backend now
 
   useEffect(() => {
     const fetchData = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
       try {
-        const [prodRes, catRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/products`),
-          fetch(`${API_BASE_URL}/categories`)
+        const headers = { 'Authorization': `Bearer ${token}` };
+        const [prodRes, catRes, tableRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/products`, { headers }),
+          fetch(`${API_BASE_URL}/categories`, { headers }),
+          fetch(`${API_BASE_URL}/tables`, { headers })
         ]);
+
         if (prodRes.ok) setProducts(await prodRes.json());
         if (catRes.ok) setCategories(await catRes.json());
+        if (tableRes.ok) {
+          const dbTables = await tableRes.json();
+          setTables(dbTables.map(t => ({
+            id: t.id,
+            number: t.table_number,
+            seats: t.seats,
+            floor: t.floor_id,
+            state: t.status === 'available' ? 'available' : 'occupied'
+          })));
+        }
       } catch (err) {
         console.error('Fetch error:', err);
       }
     };
+
     fetchData();
+    const interval = setInterval(fetchData, 5000); // Poll every 5s for live status
+    return () => clearInterval(interval);
   }, []);
 
   const addToast = (message, type) => {
@@ -241,9 +248,14 @@ const handleCloseSession = (result) => {
   setActiveView('dashboard');
 };
 
-if (activeView === 'login') {
-  return <Login onNavigate={setActiveView} />;
-}
+  const isSelfOrder = window.location.pathname === '/self-order';
+  if (isSelfOrder) {
+    return <SelfOrderMenu />;
+  }
+
+  if (activeView === 'login') {
+    return <Login onNavigate={setActiveView} />;
+  }
 
 if (activeView === 'signup') {
   return <Signup onNavigate={setActiveView} />;

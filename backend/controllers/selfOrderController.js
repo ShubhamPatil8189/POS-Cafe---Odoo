@@ -1,5 +1,6 @@
 const pool = require('../config/database');
 const crypto = require('crypto');
+const QRCode = require('qrcode');
 
 // Internal utility to recalculate order total (replicated from orderController for decoupling)
 async function recalculateOrderTotal(orderId) {
@@ -32,7 +33,7 @@ async function recalculateOrderTotal(orderId) {
 exports.getQRData = async (req, res) => {
   try {
     const [tables] = await pool.query('SELECT id, table_number FROM tables WHERE is_active = TRUE');
-    const baseUrl = process.env.FRONTEND_SELF_ORDER_URL || 'http://localhost:5173/self-order';
+    const baseUrl = process.env.FRONTEND_SELF_ORDER_URL || `${req.protocol}://${req.get('host').replace('5000', '5173')}/self-order`;
 
     const qrData = tables.map(t => ({
       table_id: t.id,
@@ -47,20 +48,52 @@ exports.getQRData = async (req, res) => {
   }
 };
 
+// ── GET /api/self-order/qr/:tableId ─────────────────────
+// Returns the actual QR image (buffer)
+exports.getQRImage = async (req, res) => {
+  try {
+    const { tableId } = req.params;
+    const baseUrl = process.env.FRONTEND_SELF_ORDER_URL || `${req.protocol}://${req.get('host').replace('5000', '5173')}/self-order`;
+    const url = `${baseUrl}?tableId=${tableId}`;
+
+    const qrBuffer = await QRCode.toBuffer(url, {
+      margin: 1,
+      width: 400,
+      color: {
+        dark: '#4f46e5', // INDIGO-600
+        light: '#ffffff'
+      }
+    });
+
+    res.type('image/png').send(qrBuffer);
+  } catch (err) {
+    console.error('QR Gen error:', err);
+    res.status(500).json({ error: 'Failed' });
+  }
+};
+
 // ── POST /api/self-order/place-order ────────────────────
 exports.placeOrder = async (req, res) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
 
-    const { table_id, items, checkout_type } = req.body; // checkout_type: 'advance' or 'kitchen'
+    const { table_id: raw_table_id, items, checkout_type } = req.body; // checkout_type: 'advance' or 'kitchen'
+    const table_id = parseInt(raw_table_id);
 
-    if (!table_id || !items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: 'Table ID and items are required.' });
+    if (isNaN(table_id) || !items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'Valid Table ID and items are required.' });
     }
 
     if (!['advance', 'kitchen'].includes(checkout_type)) {
       return res.status(400).json({ error: 'Invalid checkout type.' });
+    }
+
+    // 0. Verify Table Existence
+    const [tableCheck] = await connection.query('SELECT id FROM tables WHERE id = ?', [table_id]);
+    if (tableCheck.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ error: `Table ID ${table_id} does not exist. Please scan the latest QR code.` });
     }
 
     // 1. Generate Order Number
@@ -92,8 +125,8 @@ exports.placeOrder = async (req, res) => {
 
     // 4. Update Table Status
     if (checkout_type === 'advance') {
-      // Pay in Advance: Mark occupied with 30-minute timer
-      const expiryDate = new Date(Date.now() + 30 * 60 * 1000); // 30 mins from now
+      // Pay in Advance: Mark occupied with 5-minute timer (USER REQUESTED 5 MIN)
+      const expiryDate = new Date(Date.now() + 5 * 60 * 1000); // 5 mins from now
       await connection.query(
         `UPDATE tables SET status = 'occupied', self_order_expiry = ? WHERE id = ?`,
         [expiryDate, table_id]

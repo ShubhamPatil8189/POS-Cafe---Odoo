@@ -73,25 +73,41 @@ const initDB = async () => {
       )
     `);
 
-    // Seed Data
+    // Seed Data: Floors
+    const [existingGround] = await connection.query("SELECT id FROM floors WHERE name = 'Ground Floor'");
+    let groundFloorId;
+    
+    if (existingGround.length === 0) {
+      const [result] = await connection.query("INSERT INTO floors (name) VALUES ('Ground Floor')");
+      groundFloorId = result.insertId;
+      console.log('🌱 Seeded: Ground Floor');
+    } else {
+      groundFloorId = existingGround[0].id;
+    }
+
+    // Seed Data: Tables for Ground Floor
+    console.log("🌱 Checking Ground Floor tables (T1-T6)...");
+    for (let i = 1; i <= 6; i++) {
+      const tableNum = `T${i}`;
+      const [tableCheck] = await connection.query("SELECT id FROM tables WHERE floor_id = ? AND table_number = ?", [groundFloorId, tableNum]);
+      if (tableCheck.length === 0) {
+        await connection.query("INSERT INTO tables (floor_id, table_number, seats, status) VALUES (?, ?, ?, 'available')", [groundFloorId, tableNum, i === 3 ? 6 : (i === 6 ? 8 : (i === 4 ? 2 : 4))]);
+        console.log(`🌱 Seeded Table: ${tableNum}`);
+      }
+    }
+
+    // Seed Data: Payment Methods
     const [methods] = await connection.query('SELECT COUNT(*) as count FROM payment_methods');
     if (methods[0].count === 0) {
       await connection.query("INSERT INTO payment_methods (type, is_enabled, upi_id) VALUES ('cash', TRUE, NULL), ('digital', TRUE, NULL), ('upi', TRUE, '123@ybl.com')");
+      console.log('🌱 Seeded: Payment methods');
     }
 
-    const [floors] = await connection.query('SELECT COUNT(*) as count FROM floors');
-    if (floors[0].count === 0) {
-      const [result] = await connection.query("INSERT INTO floors (name) VALUES ('Ground Floor')");
-      const floorId = result.insertId;
-      
-      await connection.query(`INSERT INTO tables (floor_id, table_number, seats, status) VALUES
-        (?, '1', 4, 'available'), (?, '2', 4, 'available'), (?, '3', 6, 'available'), (?, '4', 2, 'available'), (?, '5', 4, 'available'), (?, '6', 8, 'available')
-      `, [floorId, floorId, floorId, floorId, floorId, floorId]);
-    }
-
+    // Seed Data: Pos Terminals
     const [terminals] = await connection.query('SELECT COUNT(*) as count FROM pos_terminal');
     if (terminals[0].count === 0) {
       await connection.query("INSERT INTO pos_terminal (name) VALUES ('Main Counter')");
+      console.log('🌱 Seeded: POS Terminal');
     }
 
     connection.release();

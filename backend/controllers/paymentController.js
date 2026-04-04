@@ -275,9 +275,11 @@ exports.verifyRazorpayPayment = async (req, res) => {
       // 4. Update table status
       if (order.table_id) {
         if (order.source === 'self-order' && order.checkout_type === 'advance') {
-          const expiryDate = new Date(Date.now() + 30 * 60 * 1000);
+          // Reserve table for 5 minutes after payment in checkout (USER REQUESTED)
+          const expiryDate = new Date(Date.now() + 5 * 60 * 1000);
           await conn.query(`UPDATE tables SET status = 'occupied', self_order_expiry = ? WHERE id = ?`, [expiryDate, order.table_id]);
         } else {
+          // Send to kitchen orders or others: Mark available once paid
           await conn.query(`UPDATE tables SET status = 'available', self_order_expiry = NULL WHERE id = ?`, [order.table_id]);
         }
       }

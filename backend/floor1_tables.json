@@ -1,0 +1,14 @@
+[
+  {
+    "id": 1,
+    "floor_id": 1,
+    "table_number": "1",
+    "seats": 4,
+    "is_active": 1,
+    "status": "occupied",
+    "locked_by": null,
+    "last_activity": null,
+    "self_order_token": null,
+    "self_order_expiry": "2026-04-04T21:05:29.000Z"
+  }
+]

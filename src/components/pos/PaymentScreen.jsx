@@ -57,34 +57,51 @@ export default function PaymentScreen({ isOpen, onClose, total, cartItems, payme
   const getOrCreateOrder = async () => {
     const token = localStorage.getItem('token');
     
+    // If we have an orderId, try to fetch it from the server
     if (orderId) {
-      const orderRes = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!orderRes.ok) throw new Error('Failed to fetch existing order');
-      return await orderRes.json();
+      try {
+        const orderRes = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (orderRes.ok) {
+          return await orderRes.json();
+        }
+        console.warn(`Order ${orderId} not found on server, creating new record.`);
+      } catch (err) {
+        console.error('Fetch existing order failed:', err);
+      }
     }
     
-    // 1. Create Draft Order
+    // Otherwise (or if fetch failed), create a new order in the DB
     const orderRes = await fetch(`${API_BASE_URL}/orders`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ order_type: 'pos' })
+      body: JSON.stringify({ order_type: 'pos', status: 'draft' })
     });
-    if (!orderRes.ok) throw new Error('Order creation failed');
+    if (!orderRes.ok) throw new Error('Order creation failed on backend');
     const order = await orderRes.json();
     setActiveOrderId(order.id);
     
-    // 2. Add Items
+    // Add items from the cart to this new database order
     for (const item of cartItems) {
+      const pid = item.id || item.productId;
+      const pname = item.name || 'Unknown Item';
+      const pqty = item.quantity || item.qty || 1;
+      const pprice = item.price || 0;
+
+      if (!pid) {
+        console.warn('Skipping item without ID:', item);
+        continue;
+      }
+
       await fetch(`${API_BASE_URL}/orders/${order.id}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
-          product_id: item.id,
-          product_name: item.name,
-          quantity: item.quantity || item.qty,
-          price: item.price,
+          product_id: pid,
+          product_name: pname,
+          quantity: pqty,
+          price: pprice,
           tax_rate: 5
         })
       });

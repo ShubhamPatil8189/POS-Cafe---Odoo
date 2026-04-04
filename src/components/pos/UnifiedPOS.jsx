@@ -1,10 +1,9 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, LayoutGroup } from 'framer-motion';
 import { Banknote, CreditCard, Power, LogOut } from 'lucide-react';
 
 import PaymentScreen from './PaymentScreen';
 import { ToastContainer } from '../floorplan/Toast';
-import { useProductCatalog } from '../../context/ProductCatalogContext';
 import { useOrders } from '../restaurant/OrderContext';
 import { isKitchenEligibleProduct } from '../../config/kitchenConfig';
 import Navbar from '../restaurant/Navbar';
@@ -13,6 +12,8 @@ import OrderPanel from '../restaurant/OrderPanel';
 import OrdersPage from '../restaurant/OrdersPage';
 import KitchenDashboard from '../restaurant/KitchenDashboard';
 import ProductManagement from '../restaurant/ProductManagement';
+import QRDashboard from '../restaurant/QRDashboard';
+import API_BASE_URL from '../../config';
 
 export default function UnifiedPOS({
   session,
@@ -24,10 +25,33 @@ export default function UnifiedPOS({
   onLogout,
 }) {
   const { orders, sendToKitchen, kdsToasts } = useOrders();
-  const { products } = useProductCatalog();
+  const [products, setProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const response = await fetch(`${API_BASE_URL}/products`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setProducts(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch products:', err);
+      } finally {
+        setLoadingProducts(false);
+      }
+    };
+    fetchProducts();
+  }, []);
 
   const [posMainView, setPosMainView] = useState('tables');
-  const [activeFloor, setActiveFloor] = useState('ground');
+  const [activeFloor, setActiveFloor] = useState(1); // Default to Floor ID 1 (Ground)
   const [selectedTable, setSelectedTable] = useState(null);
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -35,7 +59,8 @@ export default function UnifiedPOS({
   const [showPayment, setShowPayment] = useState(false);
   const [activeOrderToPay, setActiveOrderToPay] = useState(null);
 
-  const currentTables = tables.filter((t) => t.floor === activeFloor);
+  // Filter tables by floor ID (ensuring type comparison works)
+  const currentTables = tables.filter((t) => Number(t.floor) === Number(activeFloor));
 
   const resolveTable = useCallback(
     (t) => {
@@ -58,7 +83,8 @@ export default function UnifiedPOS({
   const categoryTabs = useMemo(() => {
     const set = new Set();
     products.forEach((p) => {
-      if (p.category) set.add(p.category);
+      if (p.category?.name) set.add(p.category.name);
+      else if (p.category) set.add(p.category);
     });
     return ['all', ...Array.from(set).sort()];
   }, [products]);
@@ -67,7 +93,9 @@ export default function UnifiedPOS({
     return products.filter((p) => {
       if (!p.available) return false;
       const matchesCat =
-        activeCategory === 'all' || p.category === activeCategory;
+        activeCategory === 'all' || 
+        (p.category?.name === activeCategory) || 
+        (p.category === activeCategory);
       const matchesSearch = p.name
         .toLowerCase()
         .includes(searchQuery.toLowerCase());
@@ -271,7 +299,7 @@ export default function UnifiedPOS({
                 flex: selectedTable ? 1 : 0
               }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className={`relative z-0 flex h-full bg-[#FCFCFD] shrink-0 overflow-hidden ${!selectedTable && 'pointer-events-none'}`}
+              className={`relative z-0 flex h-full bg-[#FCFCFD] shrink-0 overflow-hidden ${!selectedTable ? 'pointer-events-none' : ''}`}
             >
               <OrderPanel
                 selectedTable={selectedTable}
@@ -292,6 +320,10 @@ export default function UnifiedPOS({
             </motion.div>
           </LayoutGroup>
         </div>
+      )}
+
+      {posMainView === 'qr' && (
+        <QRDashboard tables={tables} />
       )}
 
       {posMainView === 'orders' && (

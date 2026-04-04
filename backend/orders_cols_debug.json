@@ -1,0 +1,122 @@
+[
+  {
+    "Field": "id",
+    "Type": "int",
+    "Null": "NO",
+    "Key": "PRI",
+    "Default": null,
+    "Extra": "auto_increment"
+  },
+  {
+    "Field": "order_number",
+    "Type": "varchar(50)",
+    "Null": "NO",
+    "Key": "UNI",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "session_id",
+    "Type": "int",
+    "Null": "YES",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "table_id",
+    "Type": "int",
+    "Null": "YES",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "user_id",
+    "Type": "int",
+    "Null": "YES",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "status",
+    "Type": "enum('draft','confirmed','preparing','ready','completed','cancelled')",
+    "Null": "YES",
+    "Key": "",
+    "Default": "draft",
+    "Extra": ""
+  },
+  {
+    "Field": "source",
+    "Type": "enum('pos','self-order','online')",
+    "Null": "YES",
+    "Key": "",
+    "Default": "pos",
+    "Extra": ""
+  },
+  {
+    "Field": "subtotal",
+    "Type": "decimal(10,2)",
+    "Null": "YES",
+    "Key": "",
+    "Default": "0.00",
+    "Extra": ""
+  },
+  {
+    "Field": "tax_total",
+    "Type": "decimal(10,2)",
+    "Null": "YES",
+    "Key": "",
+    "Default": "0.00",
+    "Extra": ""
+  },
+  {
+    "Field": "total",
+    "Type": "decimal(10,2)",
+    "Null": "YES",
+    "Key": "",
+    "Default": "0.00",
+    "Extra": ""
+  },
+  {
+    "Field": "notes",
+    "Type": "text",
+    "Null": "YES",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "created_at",
+    "Type": "timestamp",
+    "Null": "YES",
+    "Key": "",
+    "Default": "CURRENT_TIMESTAMP",
+    "Extra": ""
+  },
+  {
+    "Field": "updated_at",
+    "Type": "timestamp",
+    "Null": "YES",
+    "Key": "",
+    "Default": "CURRENT_TIMESTAMP",
+    "Extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+  },
+  {
+    "Field": "checkout_type",
+    "Type": "enum('advance','kitchen')",
+    "Null": "YES",
+    "Key": "",
+    "Default": "kitchen",
+    "Extra": ""
+  },
+  {
+    "Field": "is_paid",
+    "Type": "tinyint(1)",
+    "Null": "YES",
+    "Key": "",
+    "Default": "0",
+    "Extra": ""
+  }
+]

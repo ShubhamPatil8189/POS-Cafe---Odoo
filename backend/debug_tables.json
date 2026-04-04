@@ -1,0 +1,86 @@
+[
+  {
+    "id": 1,
+    "floor_id": 1,
+    "table_number": "1",
+    "seats": 4,
+    "is_active": 1,
+    "status": "occupied",
+    "locked_by": null,
+    "last_activity": null,
+    "self_order_token": null,
+    "self_order_expiry": "2026-04-04T21:05:29.000Z"
+  },
+  {
+    "id": 30001,
+    "floor_id": 1,
+    "table_number": "T1",
+    "seats": 4,
+    "is_active": 1,
+    "status": "available",
+    "locked_by": null,
+    "last_activity": null,
+    "self_order_token": null,
+    "self_order_expiry": null
+  },
+  {
+    "id": 30002,
+    "floor_id": 1,
+    "table_number": "T2",
+    "seats": 4,
+    "is_active": 1,
+    "status": "available",
+    "locked_by": null,
+    "last_activity": null,
+    "self_order_token": null,
+    "self_order_expiry": null
+  },
+  {
+    "id": 30003,
+    "floor_id": 1,
+    "table_number": "T3",
+    "seats": 6,
+    "is_active": 1,
+    "status": "available",
+    "locked_by": null,
+    "last_activity": null,
+    "self_order_token": null,
+    "self_order_expiry": null
+  },
+  {
+    "id": 30004,
+    "floor_id": 1,
+    "table_number": "T4",
+    "seats": 2,
+    "is_active": 1,
+    "status": "available",
+    "locked_by": null,
+    "last_activity": null,
+    "self_order_token": null,
+    "self_order_expiry": null
+  },
+  {
+    "id": 30005,
+    "floor_id": 1,
+    "table_number": "T5",
+    "seats": 4,
+    "is_active": 1,
+    "status": "available",
+    "locked_by": null,
+    "last_activity": null,
+    "self_order_token": null,
+    "self_order_expiry": null
+  },
+  {
+    "id": 30006,
+    "floor_id": 1,
+    "table_number": "T6",
+    "seats": 8,
+    "is_active": 1,
+    "status": "available",
+    "locked_by": null,
+    "last_activity": null,
+    "self_order_token": null,
+    "self_order_expiry": null
+  }
+]

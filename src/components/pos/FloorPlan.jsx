@@ -10,7 +10,12 @@ export default function FloorPlan() {
   useEffect(() => {
     const fetchFloors = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/floors`);
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const res = await fetch(`${API_BASE_URL}/floors`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
         if (!res.ok) throw new Error('Failed to fetch floors');
         const data = await res.json();
         setFloors(data);

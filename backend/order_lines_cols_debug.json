@@ -1,0 +1,82 @@
+[
+  {
+    "Field": "id",
+    "Type": "int",
+    "Null": "NO",
+    "Key": "PRI",
+    "Default": null,
+    "Extra": "auto_increment"
+  },
+  {
+    "Field": "order_id",
+    "Type": "int",
+    "Null": "YES",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "product_id",
+    "Type": "int",
+    "Null": "YES",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "product_name",
+    "Type": "varchar(100)",
+    "Null": "NO",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "quantity",
+    "Type": "decimal(10,3)",
+    "Null": "YES",
+    "Key": "",
+    "Default": "1.000",
+    "Extra": ""
+  },
+  {
+    "Field": "unit_price",
+    "Type": "decimal(10,2)",
+    "Null": "NO",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "subtotal",
+    "Type": "decimal(10,2)",
+    "Null": "NO",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  },
+  {
+    "Field": "tax",
+    "Type": "decimal(10,2)",
+    "Null": "YES",
+    "Key": "",
+    "Default": "0.00",
+    "Extra": ""
+  },
+  {
+    "Field": "kitchen_status",
+    "Type": "enum('pending','preparing','ready')",
+    "Null": "YES",
+    "Key": "",
+    "Default": "pending",
+    "Extra": ""
+  },
+  {
+    "Field": "notes",
+    "Type": "text",
+    "Null": "YES",
+    "Key": "",
+    "Default": null,
+    "Extra": ""
+  }
+]

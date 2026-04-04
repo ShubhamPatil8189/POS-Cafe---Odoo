@@ -28,18 +28,21 @@ export default function TableGrid({
           className="px-8 py-5 flex items-center justify-between border-b border-border/40 bg-white/40 xl:bg-white/60 backdrop-blur-xl shrink-0 z-20"
         >
           <div className="flex bg-white p-1.5 rounded-full shadow-sm border border-slate-200/60 transition-all">
-            {['ground', 'first'].map((f) => (
+            {[
+              { id: 1, label: 'Ground' },
+              { id: 2, label: 'First' }
+            ].map((f) => (
               <button
-                key={f}
+                key={f.id}
                 type="button"
-                onClick={() => onFloorChange(f)}
+                onClick={() => onFloorChange(f.id)}
                 className={`px-5 py-2 rounded-full text-sm font-extrabold capitalize transition-all duration-300 ${
-                  activeFloor === f
+                  Number(activeFloor) === Number(f.id)
                     ? 'bg-primary-50 text-indigo-700 shadow-sm'
                     : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                 }`}
               >
-                {f} Floor
+                {f.label} Floor
               </button>
             ))}
           </div>

@@ -7,6 +7,12 @@ const auth = require('../middleware/auth');
 // POST /api/orders — Create order
 router.post('/', orderController.createOrder);
 
+// GET /api/orders — Get all orders
+router.get('/', orderController.getOrders);
+
+// GET /api/orders/:id/items — Get order lines
+router.get('/:id/items', orderController.getOrderItems);
+
 // POST /api/orders/:id/items — Add item to order
 router.post('/:id/items', orderController.addItem);
 

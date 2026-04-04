@@ -156,11 +156,12 @@ app.get('/test-pay', async (req, res) => {
 });
 
 /* ---------- Background Tasks ---------- */
-// 30-minute timer release for 'Pay in Advance' self-orders
 const releaseExpiredTables = async () => {
   try {
-    const { pool } = require('./db');
-    const [result] = await pool.query(`
+    const db = require('./db');
+    if (!db || !db.pool) return;
+
+    const [result] = await db.pool.query(`
       UPDATE tables 
       SET status = 'available', self_order_expiry = NULL 
       WHERE status = 'occupied' AND self_order_expiry IS NOT NULL AND self_order_expiry <= NOW()
@@ -169,7 +170,12 @@ const releaseExpiredTables = async () => {
       console.log(`🧹 Background Task: Released ${result.affectedRows} expired self-order tables.`);
     }
   } catch (error) {
-    console.error('❌ Background Task Error:', error.message);
+    // Only log essential info to avoid flooding if it's a persistent connection issue
+    if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+      console.error(`⚠️ Background Task: Database host unreachable (${error.code}). Skipping this run.`);
+    } else {
+      console.error('❌ Background Task Error:', error.message);
+    }
   }
 };
 

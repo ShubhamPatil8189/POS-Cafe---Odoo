@@ -72,7 +72,7 @@ exports.createOrder = async (req, res) => {
 exports.getOrders = async (req, res) => {
   try {
     const { status, session_id, table_id, limit = 50, offset = 0 } = req.query;
-    let query = 'SELECT * FROM orders WHERE 1=1';
+    let query = 'SELECT o.*, t.table_number FROM orders o LEFT JOIN tables t ON o.table_id = t.id WHERE 1=1';
     const params = [];
 
     if (status) {
@@ -96,6 +96,18 @@ exports.getOrders = async (req, res) => {
   } catch (error) {
     console.error('Get orders error:', error);
     res.status(500).json({ error: 'Failed to fetch orders.' });
+  }
+};
+
+// ── Get Order Items ────────────────────────────────────
+exports.getOrderItems = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [items] = await pool.query('SELECT * FROM order_lines WHERE order_id = ?', [id]);
+    res.json(items);
+  } catch (error) {
+    console.error('Get order items error:', error);
+    res.status(500).json({ error: 'Failed to fetch order items.' });
   }
 };
 

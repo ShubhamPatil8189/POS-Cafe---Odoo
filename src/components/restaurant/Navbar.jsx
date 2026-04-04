@@ -129,6 +129,7 @@ export default function Navbar({ currentView, onViewChange }) {
         {tab('menu', 'Menu')}
         {tab('orders', 'Orders')}
         {tab('kitchen', 'Kitchen')}
+        {tab('qr', 'QR Codes')}
       </nav>
 
       <button
