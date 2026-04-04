@@ -11,6 +11,7 @@ export default function FloorPlan() {
     const fetchFloors = async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/floors`);
+        if (!res.ok) throw new Error('Failed to fetch floors');
         const data = await res.json();
         setFloors(data);
       } catch (err) {
@@ -67,6 +68,11 @@ export default function FloorPlan() {
           </div>
         </div>
       ))}
+      {floors.length === 0 && (
+        <div className="p-12 text-center rounded-3xl border-2 border-dashed border-border bg-surface-base">
+          <p className="text-text-tertiary">No floors or tables configured yet.</p>
+        </div>
+      )}
     </div>
   );
 }

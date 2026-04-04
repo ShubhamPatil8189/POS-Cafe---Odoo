@@ -118,7 +118,7 @@ async function seed() {
     `);
     console.log('  ✅ product_extras');
 
-    // ── Tables for other modules (Person 2, 3, 4) ─────
+    // ── Unified Tables (Module B, C, D) ───────────────
     await connection.query(`
       CREATE TABLE IF NOT EXISTS floors (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -132,13 +132,15 @@ async function seed() {
     console.log('  ✅ floors');
 
     await connection.query(`
-      CREATE TABLE IF NOT EXISTS tables_list (
+      CREATE TABLE IF NOT EXISTS tables (
         id INT AUTO_INCREMENT PRIMARY KEY,
         floor_id INT,
-        table_number VARCHAR(20) NOT NULL,
-        seats INT DEFAULT 4,
-        status ENUM('available', 'occupied', 'reserved', 'self-order') DEFAULT 'available',
+        table_number VARCHAR(50) NOT NULL,
+        seats INT DEFAULT 2,
         is_active BOOLEAN DEFAULT TRUE,
+        status VARCHAR(50) DEFAULT 'available',
+        locked_by VARCHAR(255),
+        last_activity DATETIME,
         position_x INT DEFAULT 0,
         position_y INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -146,13 +148,13 @@ async function seed() {
         FOREIGN KEY (floor_id) REFERENCES floors(id) ON DELETE SET NULL
       )
     `);
-    console.log('  ✅ tables_list');
+    console.log('  ✅ tables');
 
     await connection.query(`
       CREATE TABLE IF NOT EXISTS payment_methods (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        type ENUM('cash', 'digital', 'upi') NOT NULL,
+        name VARCHAR(100),
+        type VARCHAR(50) NOT NULL,
         is_enabled BOOLEAN DEFAULT TRUE,
         upi_id VARCHAR(100),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -162,18 +164,18 @@ async function seed() {
     console.log('  ✅ payment_methods');
 
     await connection.query(`
-      CREATE TABLE IF NOT EXISTS pos_sessions (
+      CREATE TABLE IF NOT EXISTS sessions (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NOT NULL,
-        opening_balance DECIMAL(10, 2) DEFAULT 0.00,
-        closing_balance DECIMAL(10, 2),
-        status ENUM('open', 'closed') DEFAULT 'open',
-        opened_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        closed_at TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        user_id INT,
+        terminal_id INT,
+        status VARCHAR(50) DEFAULT 'open',
+        opening_balance DECIMAL(10,2) DEFAULT 0.00,
+        closing_balance DECIMAL(10,2),
+        start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+        end_time DATETIME
       )
     `);
-    console.log('  ✅ pos_sessions');
+    console.log('  ✅ sessions');
 
     await connection.query(`
       CREATE TABLE IF NOT EXISTS orders (
@@ -189,10 +191,7 @@ async function seed() {
         total DECIMAL(10, 2) DEFAULT 0.00,
         notes TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (session_id) REFERENCES pos_sessions(id) ON DELETE SET NULL,
-        FOREIGN KEY (table_id) REFERENCES tables_list(id) ON DELETE SET NULL,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `);
     console.log('  ✅ orders');
@@ -217,41 +216,22 @@ async function seed() {
     console.log('  ✅ order_lines');
 
     await connection.query(`
-      CREATE TABLE IF NOT EXISTS payments (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        order_id INT NOT NULL,
-        method_id INT,
-        amount DECIMAL(10, 2) NOT NULL,
-        status ENUM('pending', 'completed', 'refunded') DEFAULT 'pending',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
-        FOREIGN KEY (method_id) REFERENCES payment_methods(id) ON DELETE SET NULL
-      )
-    `);
-    console.log('  ✅ payments');
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS reservations (
+      CREATE TABLE IF NOT EXISTS ModuleB_reservations (
         id INT AUTO_INCREMENT PRIMARY KEY,
         table_id INT,
-        customer_name VARCHAR(100),
-        customer_phone VARCHAR(20),
-        reservation_time DATETIME NOT NULL,
-        guests INT DEFAULT 2,
-        status ENUM('pending', 'confirmed', 'checked-in', 'completed', 'cancelled') DEFAULT 'pending',
-        advance_paid DECIMAL(10, 2) DEFAULT 0.00,
-        notes TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (table_id) REFERENCES tables_list(id) ON DELETE SET NULL
+        customer_name VARCHAR(255) NOT NULL,
+        phone VARCHAR(50),
+        reserved_time DATETIME NOT NULL,
+        expiry_time DATETIME NOT NULL,
+        status VARCHAR(50) DEFAULT 'active'
       )
     `);
-    console.log('  ✅ reservations');
+    console.log('  ✅ ModuleB_reservations');
 
     // ── Seed Data ──────────────────────────────────────
     console.log('\n🌱 Seeding data...');
 
-    // Check if admin already exists
+    // Users
     const [existingUsers] = await connection.query('SELECT id FROM users WHERE email = ?', ['admin@cafe.com']);
     if (existingUsers.length === 0) {
       const hashedPassword = await bcrypt.hash('admin123', 10);
@@ -259,12 +239,10 @@ async function seed() {
         'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
         ['Admin', 'admin@cafe.com', hashedPassword, 'admin']
       );
-      console.log('  ✅ Admin user created (admin@cafe.com / admin123)');
-    } else {
-      console.log('  ⏭️  Admin user already exists');
+      console.log('  ✅ Admin user created');
     }
 
-    // Check if categories already exist
+    // Categories
     const [existingCategories] = await connection.query('SELECT id FROM categories LIMIT 1');
     if (existingCategories.length === 0) {
       await connection.query(`
@@ -276,22 +254,12 @@ async function seed() {
         ('Drinks', '#4169E1', 5, FALSE),
         ('Desserts', '#FF69B4', 6, TRUE)
       `);
-      console.log('  ✅ 6 categories inserted');
-    } else {
-      console.log('  ⏭️  Categories already exist');
+      console.log('  ✅ Categories inserted');
     }
 
-    // Check if products already exist
+    // Products
     const [existingProducts] = await connection.query('SELECT id FROM products LIMIT 1');
-    // If they exist but don't have images (check first row), we might want to clear them
-    const [firstProd] = await connection.query('SELECT image_url FROM products LIMIT 1');
-    
-    if (existingProducts.length === 0 || (firstProd.length > 0 && !firstProd[0].image_url)) {
-      if (existingProducts.length > 0) {
-        console.log('  🔄 Re-seeding products to add images...');
-        await connection.query('DELETE FROM products');
-      }
-      
+    if (existingProducts.length === 0) {
       await connection.query(`
         INSERT INTO products (name, category_id, price, tax, uom, description, image_url, send_to_kitchen) VALUES
         ('Margherita Pizza', 1, 300.00, 5.00, 'piece', 'Classic tomato and mozzarella', 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?q=80&w=600&auto=format&fit=crop', TRUE),
@@ -309,48 +277,29 @@ async function seed() {
         ('Lemon Soda', 5, 80.00, 5.00, 'glass', 'Fresh lemon soda', 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?q=80&w=600&auto=format&fit=crop', FALSE),
         ('Chocolate Brownie', 6, 210.00, 5.00, 'piece', 'Walnut brownie', 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?q=80&w=600&auto=format&fit=crop', TRUE)
       `);
-      console.log('  ✅ 14 products inserted with images');
-    } else {
-      console.log('  ⏭️  Products already exist');
+      console.log('  ✅ Products inserted');
     }
 
-    // Seed payment methods
-    const [existingPM] = await connection.query('SELECT id FROM payment_methods LIMIT 1');
-    if (existingPM.length === 0) {
-      await connection.query(`
-        INSERT INTO payment_methods (name, type, is_enabled, upi_id) VALUES
-        ('Cash', 'cash', TRUE, NULL),
-        ('Card / Bank', 'digital', TRUE, NULL),
-        ('UPI QR', 'upi', TRUE, '123@ybl.com')
-      `);
-      console.log('  ✅ 3 payment methods inserted');
-    } else {
-      console.log('  ⏭️  Payment methods already exist');
-    }
-
-    // Seed a default floor + tables
+    // Floors & Tables
     const [existingFloors] = await connection.query('SELECT id FROM floors LIMIT 1');
     if (existingFloors.length === 0) {
-      await connection.query(
-        "INSERT INTO floors (name, sequence) VALUES ('Ground Floor', 1)"
-      );
+      const [res] = await connection.query("INSERT INTO floors (name, sequence) VALUES ('Ground Floor', 1)");
+      const floorId = res.insertId;
       await connection.query(`
-        INSERT INTO tables_list (floor_id, table_number, seats, status) VALUES
-        (1, 'T1', 4, 'available'),
-        (1, 'T2', 2, 'available'),
-        (1, 'T3', 6, 'available'),
-        (1, 'T4', 4, 'available'),
-        (1, 'T5', 8, 'available'),
-        (1, 'T6', 2, 'available')
-      `);
-      console.log('  ✅ 1 floor + 6 tables inserted');
-    } else {
-      console.log('  ⏭️  Floors already exist');
+        INSERT INTO tables (floor_id, table_number, seats, status) VALUES
+        (?, 'T1', 4, 'available'),
+        (?, 'T2', 2, 'available'),
+        (?, 'T3', 6, 'available'),
+        (?, 'T4', 4, 'available'),
+        (?, 'T5', 8, 'available'),
+        (?, 'T6', 2, 'available')
+      `, [floorId, floorId, floorId, floorId, floorId, floorId]);
+      console.log('  ✅ Floor + Tables inserted');
     }
 
-    console.log('\n🎉 Seed completed successfully!');
-  } catch (error) {
-    console.error('❌ Seed error:', error.message);
+    console.log('\n🎉 Seed completed!');
+  } catch (err) {
+    console.error('❌ Seed error:', err.message);
   } finally {
     if (connection) await connection.end();
     process.exit(0);
