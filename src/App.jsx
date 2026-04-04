@@ -51,6 +51,8 @@ import POSLayout from './components/pos/POSLayout';
 import Dashboard from './components/pos/Dashboard';
 import UnifiedPOS from './components/pos/UnifiedPOS';
 import { OpenSessionModal, CloseSessionModal } from './components/pos/SessionModals';
+import { OrderProvider } from './components/restaurant/OrderContext';
+import { ProductCatalogProvider } from './context/ProductCatalogContext';
 
 // ─── Section Wrapper ─── //
 function Section({ title, description, children, id }) {
@@ -110,24 +112,13 @@ export default function App() {
     }, 4000);
   };
 
-  // Kitchen simulation 
-  const handleOrderSent = (tableId, cart) => {
-    // 1. Mark as occupied
-    setTables(prev => prev.map(t => t.id === tableId ? { ...t, state: 'occupied' } : t));
-    addToast(`Order sent to kitchen 🍳`, 'success');
-    
-    // 2. Kitchen "Preparing" after 3s
-    setTimeout(() => {
-      setTables(prev => prev.map(t => t.id === tableId ? { ...t, state: 'preparing' } : t));
-      addToast(`Preparing Table ${tables.find(t=>t.id===tableId)?.number || ''} order`, 'preparing');
-      
-      // 3. Kitchen "Ready" after another 4s
-      setTimeout(() => {
-        setTables(prev => prev.map(t => t.id === tableId ? { ...t, state: 'occupied' } : t));
-        addToast(`Order ready for Table ${tables.find(t=>t.id===tableId)?.number || ''}`, 'success');
-      }, 4000);
-      
-    }, 3000);
+  /** Kitchen stages are driven by the KDS (OrderContext); keep table in sync when a ticket hits the pass */
+  const handleOrderSent = (tableId) => {
+    setTables((prev) =>
+      prev.map((t) =>
+        t.id === tableId ? { ...t, state: 'occupied' } : t
+      )
+    );
   };
 
   const handlePaymentComplete = (amount, method, tableId) => {
@@ -201,25 +192,27 @@ export default function App() {
 
   if (activeView === 'pos') {
     return (
-      <>
-        <UnifiedPOS 
-          session={session}
-          tables={tables}
-          toasts={toasts}
-          onOrderSent={handleOrderSent}
-          onPaymentComplete={handlePaymentComplete}
-          onCloseSessionClick={() => setShowCloseModal(true)}
-        />
-        <CloseSessionModal 
-          isOpen={showCloseModal} 
-          onClose={() => setShowCloseModal(false)}
-          onCloseSession={handleCloseSession}
-          sessionData={{
-            openingBalance: session.openingBalance,
-            cashSales: session.sales.cash
-          }}
-        />
-      </>
+      <OrderProvider>
+        <ProductCatalogProvider>
+          <UnifiedPOS
+            session={session}
+            tables={tables}
+            toasts={toasts}
+            onOrderSent={handleOrderSent}
+            onPaymentComplete={handlePaymentComplete}
+            onCloseSessionClick={() => setShowCloseModal(true)}
+          />
+          <CloseSessionModal
+            isOpen={showCloseModal}
+            onClose={() => setShowCloseModal(false)}
+            onCloseSession={handleCloseSession}
+            sessionData={{
+              openingBalance: session.openingBalance,
+              cashSales: session.sales.cash,
+            }}
+          />
+        </ProductCatalogProvider>
+      </OrderProvider>
     );
   }
 

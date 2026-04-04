@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { ChefHat, Plus } from 'lucide-react';
 
 export default function ProductCard({ product, onAdd }) {
   const [clicked, setClicked] = useState(false);
@@ -35,6 +35,12 @@ export default function ProductCard({ product, onAdd }) {
         {!product.available && (
           <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-20 flex items-center justify-center">
             <span className="bg-danger-100 text-danger-700 text-xs font-bold px-2 py-1 rounded-md">Sold Out</span>
+          </div>
+        )}
+        {product.sendToKitchen && product.available && (
+          <div className="absolute left-2 top-2 z-[15] flex items-center gap-1 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-md shadow-orange-500/30">
+            <ChefHat className="h-3 w-3" strokeWidth={2.5} />
+            Kitchen
           </div>
         )}
       </div>
