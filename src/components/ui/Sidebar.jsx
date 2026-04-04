@@ -12,10 +12,12 @@ import {
   ChevronLeft,
   ChevronRight,
   CreditCard,
+  LayoutGrid,
 } from 'lucide-react';
 
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'floors', label: 'Floor Plan', icon: LayoutGrid },
   { id: 'orders', label: 'Orders', icon: ShoppingCart, badge: '12' },
   { id: 'menu', label: 'Menu Items', icon: UtensilsCrossed },
   { id: 'kitchen', label: 'Kitchen', icon: ChefHat, badge: '3' },

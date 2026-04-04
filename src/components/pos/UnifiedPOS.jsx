@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Banknote, CreditCard, Power } from 'lucide-react';
+import { Banknote, CreditCard, Power, LogOut } from 'lucide-react';
 
 import PaymentScreen from './PaymentScreen';
 import { ToastContainer } from '../floorplan/Toast';
@@ -20,6 +20,7 @@ export default function UnifiedPOS({
   onCloseSessionClick,
   onOrderSent,
   onPaymentComplete,
+  onLogout,
 }) {
   const { orders, sendToKitchen, kdsToasts } = useOrders();
   const { products } = useProductCatalog();
@@ -36,8 +37,10 @@ export default function UnifiedPOS({
 
   const resolveTable = useCallback(
     (t) => {
+      if (t.state === 'blocked' || t.state === 'inactive') return t;
+
       const active = orders.filter(
-        (o) => o.tableNumber === t.number && o.status !== 'completed'
+        (o) => o.tableNumber === t.number && o.status !== 'completed' && !o.paid
       );
       if (active.some((o) => o.status === 'preparing')) {
         return { ...t, state: 'preparing' };
@@ -195,14 +198,24 @@ export default function UnifiedPOS({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onCloseSessionClick}
-          className="flex shrink-0 items-center gap-2 rounded-xl border border-danger-200 bg-danger-50 px-4 py-2 font-bold text-danger-700 shadow-sm transition-colors hover:bg-danger-100"
-        >
-          <Power className="h-4 w-4" />
-          <span className="hidden sm:inline">Close Session</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onLogout}
+            className="flex shrink-0 items-center gap-2 rounded-xl border border-border bg-surface-base px-4 py-2 font-bold text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-text-primary"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline">Log Out</span>
+          </button>
+          <button
+            type="button"
+            onClick={onCloseSessionClick}
+            className="flex shrink-0 items-center gap-2 rounded-xl border border-danger-200 bg-danger-50 px-4 py-2 font-bold text-danger-700 shadow-sm transition-colors hover:bg-danger-100"
+          >
+            <Power className="h-4 w-4" />
+            <span className="hidden sm:inline">Close Session</span>
+          </button>
+        </div>
       </div>
 
       <Navbar currentView={posMainView} onViewChange={setPosMainView} />
@@ -264,6 +277,19 @@ export default function UnifiedPOS({
         total={cartTotalWithTax}
         onPaymentSuccess={(method) => {
           if (!selectedTable) return;
+          
+          // Auto-route to kitchen as "paid" if there are any kitchen-eligible items in cart
+          const hasKitchenItems = cart.some(item => isKitchenEligibleProduct({
+            name: item.name,
+            category: item.category,
+            sendToKitchen: item.sendToKitchen
+          }));
+          
+          if (hasKitchenItems) {
+            sendToKitchen(selectedTable.number, cart, true);
+            // We do not need to call onOrderSent here because payment immediately blocks the table.
+          }
+
           onPaymentComplete(cartTotalWithTax, method, selectedTable.id);
           setCart([]);
           setShowPayment(false);

@@ -27,7 +27,7 @@ export default function TicketCard({ order, column }) {
     return () => clearInterval(t);
   }, []);
 
-  const elapsed = formatElapsed(now - order.createdAt);
+  const elapsed = formatElapsed((order.completedAt || now) - order.createdAt);
   const isPreparing = order.status === 'preparing';
   /** Same value for POS order id and KDS ticket — backend: single `orderId` */
   const orderNo = order.orderNumber ?? order.id;

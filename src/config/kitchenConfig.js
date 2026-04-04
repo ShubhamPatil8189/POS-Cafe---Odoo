@@ -29,12 +29,21 @@ export function nameMatchesKitchenKeywords(name) {
  */
 export function isKitchenEligibleProduct(product) {
   if (!product?.name) return false;
-  if (typeof product.sendToKitchen === 'boolean') {
-    return product.sendToKitchen;
-  }
-  if (product.category && KITCHEN_CATEGORIES.has(product.category)) {
+  
+  // Safe boolean check (handles strings from possible localstorage serialization)
+  if (product.sendToKitchen === true || product.sendToKitchen === 'true') {
     return true;
   }
+  if (product.sendToKitchen === false || product.sendToKitchen === 'false') {
+    return false;
+  }
+  
+  // Safe category check
+  if (product.category && KITCHEN_CATEGORIES.has(String(product.category).toLowerCase())) {
+    return true;
+  }
+  
+  // Fallback to name keywords
   return nameMatchesKitchenKeywords(product.name);
 }
 
