@@ -27,7 +27,10 @@ export default function TicketCard({ order, column }) {
     return () => clearInterval(t);
   }, []);
 
-  const elapsed = formatElapsed((order.completedAt || now) - order.createdAt);
+  const durationMs = order.status === 'completed' 
+    ? (order.completedAt - order.createdAt) 
+    : (now - order.createdAt);
+  const elapsed = formatElapsed(durationMs);
   const isPreparing = order.status === 'preparing';
   /** Same value for POS order id and KDS ticket — backend: single `orderId` */
   const orderNo = order.orderNumber ?? order.id;
@@ -74,12 +77,12 @@ export default function TicketCard({ order, column }) {
             </span>
           </div>
           <p className="mt-1 text-sm font-bold text-text-secondary">
-            Table {order.tableNumber}
+            Table {order.tableNumber} {order.customerName && <span className="ml-1 text-primary-700 font-black">· {order.customerName}</span>}
           </p>
         </div>
         <div className="text-right">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-            Time on ticket
+            {order.status === 'completed' ? 'Final duration' : 'Time on ticket'}
           </p>
           <p className="font-mono text-sm font-bold text-primary-700">{elapsed}</p>
         </div>

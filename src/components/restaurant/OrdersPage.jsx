@@ -63,7 +63,7 @@ export default function OrdersPage() {
                     </span>
                   </p>
                   <p className="mt-1 text-base font-bold text-text-secondary">
-                    Table {o.tableNumber}
+                    Table {o.tableNumber} {o.customerName && <span className="ml-2 font-black text-primary-700">· {o.customerName}</span>}
                   </p>
                   <p className="mt-0.5 text-xs text-text-secondary">
                     {statusLabel[o.status]} · {new Date(o.createdAt).toLocaleString()}

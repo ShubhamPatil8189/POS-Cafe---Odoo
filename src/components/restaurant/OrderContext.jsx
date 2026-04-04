@@ -94,7 +94,7 @@ export function OrderProvider({ children, onExternalPayment }) {
    * @returns {boolean} true if at least one kitchen ticket was created
    */
   const sendToKitchen = useCallback(
-    (tableNumber, cart, isPaid = false) => {
+    (tableNumber, cart, customerName = null, isPaid = false) => {
       const lines = kitchenLinesFromCart(cart);
       if (lines.length === 0) {
         pushToast('Add a kitchen item (pizza, pasta, burger…) to send to KDS', 'preparing');
@@ -106,6 +106,7 @@ export function OrderProvider({ children, onExternalPayment }) {
         id: nextOrderId,
         orderNumber: nextOrderId,
         tableNumber,
+        customerName,
         items: lines,
         status: 'toCook',
         createdAt: Date.now(),

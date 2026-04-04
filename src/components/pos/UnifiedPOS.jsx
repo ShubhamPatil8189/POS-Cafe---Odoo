@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { motion, LayoutGroup } from 'framer-motion';
-import { Banknote, CreditCard, Power, LogOut } from 'lucide-react';
+import { motion, LayoutGroup, AnimatePresence } from 'framer-motion';
+import { Banknote, CreditCard, Power, LogOut, X, User } from 'lucide-react';
 
 import PaymentScreen from './PaymentScreen';
 import { ToastContainer } from '../floorplan/Toast';
@@ -38,6 +38,9 @@ export default function UnifiedPOS({
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState([]);
   const [showPayment, setShowPayment] = useState(false);
+  const [customerName, setCustomerName] = useState(null);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [tempName, setTempName] = useState('');
 
   // Automatically gracefully transition to available floor if current active floor gets deleted
   React.useEffect(() => {
@@ -123,9 +126,9 @@ export default function UnifiedPOS({
     }
   };
 
-  const handlePlaceOrder = () => {
+   const handlePlaceOrder = () => {
     if (cart.length === 0 || !selectedTable) return;
-    const ok = sendToKitchen(selectedTable.number, cart);
+    const ok = sendToKitchen(selectedTable.number, cart, customerName);
     if (!ok) return;
     onOrderSent(selectedTable.id, cart);
     const nextCart = cart.filter(
@@ -137,6 +140,7 @@ export default function UnifiedPOS({
         })
     );
     setCart(nextCart);
+    setCustomerName(null);
     if (nextCart.length === 0) setSelectedTable(null);
   };
 
@@ -288,10 +292,18 @@ export default function UnifiedPOS({
                 addToCart={addToCart}
                 cart={cart}
                 updateQuantity={updateQuantity}
-                clearCart={() => setCart([])}
+                clearCart={() => {
+                  setCart([]);
+                  setCustomerName(null);
+                }}
                 cartTotalWithTax={cartTotalWithTax}
                 onSendToKitchen={handlePlaceOrder}
                 onPay={() => setShowPayment(true)}
+                customerName={customerName}
+                onCustomerClick={() => {
+                  setTempName(customerName || '');
+                  setShowCustomerModal(true);
+                }}
               />
             </motion.div>
           </LayoutGroup>
@@ -341,6 +353,73 @@ export default function UnifiedPOS({
           setSelectedTable(null);
         }}
       />
+      {/* Global Customer Modal to prevent z-index issues with sidebar footer */}
+      <AnimatePresence>
+        {showCustomerModal && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+              className="w-full max-w-sm bg-white rounded-[2rem] shadow-2xl p-8 border border-slate-100"
+            >
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="text-2xl font-black text-slate-900">Customer Info</h3>
+                <button 
+                  onClick={() => setShowCustomerModal(false)} 
+                  className="p-2 hover:bg-slate-50 rounded-full text-slate-400 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="space-y-6">
+                <div className="relative group">
+                  <User className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                  <input 
+                    autoFocus
+                    type="text" 
+                    placeholder="Enter customer name..."
+                    className="w-full pl-14 pr-6 py-5 bg-slate-50 border-2 border-transparent focus:border-primary-500 focus:bg-white rounded-2xl font-bold text-xl text-slate-800 outline-none transition-all shadow-inner"
+                    value={tempName}
+                    onChange={(e) => setTempName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        setCustomerName(tempName || null);
+                        setShowCustomerModal(false);
+                      }
+                    }}
+                  />
+                </div>
+                
+                <div className="flex gap-4 pt-2">
+                  <button 
+                    onClick={() => {
+                      setCustomerName(null);
+                      setTempName('');
+                      setShowCustomerModal(false);
+                    }}
+                    className="flex-1 py-4 bg-slate-100 text-slate-500 font-bold rounded-2xl hover:bg-slate-200 transition-colors active:scale-95"
+                  >
+                    Remove
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setCustomerName(tempName || null);
+                      setShowCustomerModal(false);
+                    }}
+                    className="flex-1 py-4 bg-primary-600 text-white font-extrabold rounded-2xl hover:bg-primary-700 shadow-xl shadow-primary-600/30 transition-all active:scale-95"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <ToastContainer toasts={mergedToasts} />
 
       <style>{`

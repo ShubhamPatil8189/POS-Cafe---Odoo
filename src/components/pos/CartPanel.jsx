@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { ChefHat, Trash2, User, ChevronRight, Plus, Minus, Receipt } from 'lucide-react';
+import { ChefHat, Trash2, User, ChevronRight, Plus, Minus, Receipt, X, CheckCircle2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../ui'; // Assuming we can use generic buttons from UI
 import { isKitchenEligibleProduct } from '../../config/kitchenConfig';
 
-export default function CartPanel({ cartItems, updateQuantity, clearCart, onPay }) {
+export default function CartPanel({ cartItems, updateQuantity, clearCart, onPay, customerName, onCustomerClick }) {
   const [total, setTotal] = useState(0);
 
   // Calculate total whenever cart changes
@@ -19,8 +20,16 @@ export default function CartPanel({ cartItems, updateQuantity, clearCart, onPay 
           <h2 className="text-xl font-bold text-text-primary tracking-tight">Current Order</h2>
           <span className="text-sm text-text-secondary font-medium">Order #1042</span>
         </div>
-        <button className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors text-sm font-semibold">
-          <User className="w-4 h-4" /> Add Customer
+        <button 
+          onClick={onCustomerClick}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-all text-sm font-semibold ${
+            customerName 
+              ? 'bg-success-50 text-success-700 border border-success-200' 
+              : 'bg-primary-50 text-primary-700 hover:bg-primary-100 border border-primary-100'
+          }`}
+        >
+          {customerName ? <CheckCircle2 className="w-4 h-4" /> : <User className="w-4 h-4" />}
+          {customerName || 'Add Customer'}
         </button>
       </div>
 
