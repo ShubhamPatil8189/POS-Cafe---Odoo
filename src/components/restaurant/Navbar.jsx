@@ -1,6 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useOrders } from './OrderContext';
+import { Link } from 'react-router-dom';
+import { MonitorPlay } from 'lucide-react';
 
 function KitchenPotIcon({ pulse, glow }) {
   return (
@@ -131,14 +133,24 @@ export default function Navbar({ currentView, onViewChange }) {
         {tab('kitchen', 'Kitchen')}
       </nav>
 
-      <button
-        type="button"
-        onClick={() => onViewChange('kitchen')}
-        className="shrink-0 rounded-xl p-0.5 ring-1 ring-transparent transition hover:bg-surface-hover hover:ring-border"
-        title="Kitchen display"
-      >
-        <KitchenPotIcon pulse={kitchenPulse} glow={kitchenGlow} />
-      </button>
+      <div className="flex items-center gap-3">
+        <Link 
+          to="/customer-display" 
+          target="_blank"
+          className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-bold text-white transition-all hover:bg-violet-700 hover:shadow-md active:scale-95"
+        >
+          <MonitorPlay className="h-4 w-4" />
+          <span className="hidden sm:inline">Customer Display</span>
+        </Link>
+        <button
+          type="button"
+          onClick={() => onViewChange('kitchen')}
+          className="shrink-0 rounded-xl p-0.5 ring-1 ring-transparent transition hover:bg-surface-hover hover:ring-border"
+          title="Kitchen display"
+        >
+          <KitchenPotIcon pulse={kitchenPulse} glow={kitchenGlow} />
+        </button>
+      </div>
     </header>
   );
 }

@@ -5,20 +5,20 @@ function Segment({ order }) {
   const paid = Boolean(order.paid);
   return (
     <span className="inline-flex items-center gap-3 whitespace-nowrap px-2">
-      <span className="font-mono text-xl font-black text-white/90 md:text-2xl">
+      <span className="font-mono text-xl font-black text-[#2C1810] md:text-2xl">
         #{order.id}
       </span>
-      <span className="text-white/40">→</span>
+      <span className="text-[#8C5D3A]/50">→</span>
       {paid ? (
-        <span className="rounded-full bg-emerald-500/25 px-4 py-1 text-sm font-black uppercase tracking-wider text-emerald-200 shadow-[0_0_24px_rgba(34,197,94,0.5)] ring-1 ring-emerald-400/50 md:text-base">
+        <span className="rounded-full bg-emerald-100 px-4 py-1 text-sm font-black uppercase tracking-wider text-emerald-800 shadow-sm ring-1 ring-emerald-200 md:text-base">
           Paid ✔
         </span>
       ) : (
-        <span className="rounded-full bg-rose-500/20 px-4 py-1 text-sm font-black uppercase tracking-wider text-rose-200 shadow-[0_0_20px_rgba(244,63,94,0.35)] ring-1 ring-rose-400/40 md:text-base">
+        <span className="rounded-full bg-red-100 px-4 py-1 text-sm font-black uppercase tracking-wider text-red-800 shadow-sm ring-1 ring-red-200 md:text-base">
           Unpaid
         </span>
       )}
-      <span className="text-white/30">|</span>
+      <span className="text-[#8C5D3A]/30">|</span>
     </span>
   );
 }
@@ -39,16 +39,16 @@ export default function OrderTicker({ orders }) {
 
   if (!sorted.length) {
     return (
-      <div className="relative w-full overflow-hidden rounded-2xl border border-white/10 bg-black/30 py-5 text-center text-lg text-white/50 shadow-inner backdrop-blur-xl">
+      <div className="relative w-full overflow-hidden rounded-2xl border border-[#E5D5C5] bg-white/60 py-5 text-center text-lg text-[#8C5D3A] shadow-sm backdrop-blur-xl">
         No tickets yet — waiting for orders…
       </div>
     );
   }
 
   return (
-    <div className="relative w-full overflow-hidden rounded-2xl border border-white/10 bg-black/30 py-5 shadow-inner backdrop-blur-xl">
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-[#030014] to-transparent md:w-28" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-[#030014] to-transparent md:w-28" />
+    <div className="relative w-full overflow-hidden rounded-2xl border border-[#E5D5C5] bg-white/60 py-5 shadow-sm backdrop-blur-xl">
+      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-[#FAF8F5] to-transparent md:w-28" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-[#FAF8F5] to-transparent md:w-28" />
 
       <motion.div
         className="flex w-max"

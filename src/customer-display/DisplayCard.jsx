@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 
 function itemSummary(items) {
   if (!items?.length) return '—';
-  return items.map((it) => `${it.name} ×${it.qty}`).join(' · ');
+  return items.map((it) => `${it.qty}x ${it.name}`).join(' • ');
 }
 
 export default function DisplayCard({
@@ -13,105 +13,99 @@ export default function DisplayCard({
   layoutIdPrefix = 'cd',
 }) {
   const isPreparing = variant === 'preparing';
-  const glowClass = isPreparing
-    ? 'shadow-[0_0_40px_rgba(250,204,21,0.35),inset_0_0_60px_rgba(250,204,21,0.06)] border-amber-400/50'
-    : 'shadow-[0_0_48px_rgba(34,197,94,0.45),inset_0_0_50px_rgba(34,197,94,0.08)] border-emerald-400/60';
 
-  const titleColor = isPreparing
-    ? 'from-amber-200 via-yellow-100 to-amber-300'
-    : 'from-emerald-200 via-green-100 to-emerald-300';
+  const glowClass = isPreparing
+    ? 'shadow-[0_8px_30px_rgba(234,88,12,0.15)] border-orange-200'
+    : 'shadow-[0_8px_30px_rgba(16,185,129,0.15)] border-emerald-200';
 
   return (
     <motion.article
       layout
       layoutId={`${layoutIdPrefix}-${order.id}`}
-      initial={
-        isPreparing
-          ? { opacity: 0, y: 100, x: -40, scale: 0.9 }
-          : { opacity: 0, scale: 0.55, filter: 'blur(14px)' }
-      }
-      animate={{
-        opacity: 1,
-        x: 0,
-        y: 0,
-        scale: 1,
-        filter: 'blur(0px)',
-      }}
-      transition={{
-        type: 'spring',
-        stiffness: 260,
-        damping: 22,
-      }}
-      className={`relative flex min-w-[min(100vw-2rem,22rem)] max-w-md shrink-0 flex-col rounded-3xl border-2 bg-white/5 p-6 backdrop-blur-2xl md:min-w-[24rem] md:p-8 ${glowClass}`}
+      initial={{ opacity: 0, y: 50 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+      className={`relative flex flex-col md:flex-row gap-5 rounded-3xl border border-[#E5D5C5] p-5 md:p-6 bg-[#FEFCFA]/95 backdrop-blur-xl ${glowClass} min-w-[340px] max-w-[460px] overflow-hidden`}
     >
+      {/* 🔥 Latest highlight inner ring */}
       {isLatest && (
         <motion.div
-          className="pointer-events-none absolute inset-[-4px] rounded-[1.75rem] border-2 border-fuchsia-400/70"
-          animate={{
-            opacity: [0.45, 1, 0.45],
-            scale: [1, 1.02, 1],
-            boxShadow: [
-              '0 0 20px rgba(232,121,249,0.4)',
-              '0 0 50px rgba(232,121,249,0.8)',
-              '0 0 20px rgba(232,121,249,0.4)',
-            ],
-          }}
-          transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+          className="pointer-events-none absolute inset-0 rounded-3xl border-[3px] border-orange-400"
+          animate={{ opacity: [0.3, 1, 0.3] }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
         />
       )}
 
-      <div className="relative z-10 flex flex-col gap-4">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <p
-            className={`bg-gradient-to-br bg-clip-text text-5xl font-black tabular-nums tracking-tighter text-transparent sm:text-6xl md:text-7xl ${titleColor}`}
-          >
+      {/* 📸 FOOD IMAGE THUMBNAIL */}
+      {order.image && (
+        <div className="shrink-0">
+          <div className="w-24 h-24 md:w-32 md:h-32 rounded-2xl overflow-hidden shadow-sm border border-[#E5D5C5]">
+            <img 
+              src={order.image} 
+              alt="Food thumbnail" 
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 flex flex-col justify-center">
+        {/* 🔢 ORDER NUMBER & PAYMENT */}
+        <div className="flex justify-between items-start mb-1">
+          <h1 className="text-5xl md:text-6xl font-black text-[#2C1810] tracking-tight drop-shadow-sm">
             #{order.id}
-          </p>
-          <span className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-bold uppercase tracking-widest text-white/90 ring-1 ring-white/20">
-            Table {order.tableNumber}
+          </h1>
+
+          <span
+            className={`px-3 py-1 mt-1 rounded-lg text-xs font-black uppercase tracking-wider ${
+              order.paid
+                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                : 'bg-red-100 text-red-800 border border-red-200'
+            }`}
+          >
+            {order.paid ? 'Paid ✔' : 'Unpaid'}
           </span>
         </div>
 
-        <p className="text-base font-medium leading-relaxed text-white/85 md:text-lg">
-          {itemSummary(order.items)}
-        </p>
+        {/* 👤 CUSTOMER NAME */}
+        <div className="text-lg font-bold text-[#8C5D3A] mb-1">
+          {order.customerName || `Table ${order.tableNumber}`}
+        </div>
 
-        <div className="flex items-center gap-2">
+        {/* 🍔 ITEMS */}
+        <div className="text-sm md:text-base font-semibold text-[#5C3A21] opacity-90 leading-snug">
+          {itemSummary(order.items)}
+        </div>
+
+        {/* 🔥 STATUS BADGE */}
+        <div className="flex items-center gap-2 mt-4 pt-4 border-t border-[#E5D5C5]/60">
           {isPreparing ? (
             <>
-              <motion.span
-                className="h-2.5 w-2.5 rounded-full bg-amber-400"
-                animate={{ opacity: [1, 0.3, 1], scale: [1, 1.2, 1] }}
+              <motion.div
+                className="h-2.5 w-2.5 bg-orange-500 rounded-full"
+                animate={{ scale: [1, 1.4, 1], opacity: [1, 0.6, 1] }}
                 transition={{ duration: 1.2, repeat: Infinity }}
               />
-              <span className="text-lg font-bold uppercase tracking-[0.2em] text-amber-200/95">
-                Preparing…
+              <span className="text-orange-700 text-sm font-black uppercase tracking-widest">
+                Preparing
               </span>
             </>
           ) : (
             <>
-              <motion.span
+              <motion.div
                 animate={{ y: [0, -4, 0] }}
-                transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
-                className="text-2xl"
+                transition={{ repeat: Infinity, duration: 1.2 }}
+                className="text-emerald-600 text-lg"
               >
-                ✨
-              </motion.span>
-              <span className="text-lg font-bold uppercase tracking-[0.2em] text-emerald-200">
-                Ready for pickup
+                ✓
+              </motion.div>
+              <span className="text-emerald-700 text-sm font-black uppercase tracking-widest">
+                Ready to pickup
               </span>
             </>
           )}
         </div>
       </div>
-
-      {isPreparing && (
-        <motion.div
-          className="pointer-events-none absolute inset-0 rounded-3xl bg-amber-400/5"
-          animate={{ opacity: [0.2, 0.55, 0.2] }}
-          transition={{ duration: 2.5, repeat: Infinity }}
-        />
-      )}
     </motion.article>
   );
 }

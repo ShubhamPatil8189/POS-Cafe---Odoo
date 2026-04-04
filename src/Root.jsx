@@ -1,35 +1,23 @@
-import React, { useSyncExternalStore } from 'react';
+import React from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App.jsx';
 import CustomerDisplay from './customer-display/CustomerDisplay.jsx';
 import { OrderProvider } from './components/restaurant/OrderContext.jsx';
 
-function subscribe(onChange) {
-  window.addEventListener('popstate', onChange);
-  return () => window.removeEventListener('popstate', onChange);
-}
-
-function getPath() {
-  return window.location.pathname;
-}
-
-function getServerPath() {
-  return '/';
-}
-
-/**
- * Standalone routes without modifying App.jsx:
- * - /customer-display → TV / signage (shares OrderProvider + localStorage with POS when both used)
- */
 export default function Root() {
-  const path = useSyncExternalStore(subscribe, getPath, getServerPath);
-
-  if (path === '/customer-display') {
-    return (
-      <OrderProvider>
-        <CustomerDisplay />
-      </OrderProvider>
-    );
-  }
-
-  return <App />;
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route 
+          path="/customer-display" 
+          element={
+            <OrderProvider>
+              <CustomerDisplay />
+            </OrderProvider>
+          } 
+        />
+        <Route path="/*" element={<App />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }

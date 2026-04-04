@@ -1,12 +1,3 @@
-/**
- * Kitchen Display routing — which POS lines appear on the KDS.
- * Today: static config. Later: fetch from backend, e.g. GET /api/settings/kitchen-routes
- *
- * Backend contract (suggested):
- * - POS POST /api/orders/:id/send-kitchen → creates kitchen_ticket with same `orderId` as POS order id
- * - KDS GET /api/kitchen/tickets → [{ orderId, tableNumber, status, items[], createdAt, paid }]
- * - Item: { productId?, name, quantity, category?, prepared }
- */
 
 /** Category slugs from menu — entire category goes to kitchen when listed here */
 export const KITCHEN_CATEGORIES = new Set(['italian']);
