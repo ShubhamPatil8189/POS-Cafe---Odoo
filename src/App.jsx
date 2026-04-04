@@ -115,20 +115,70 @@ export default function App() {
 
   // -- Floor Plan / Kitchen Flow State --
   const [toasts, setToasts] = useState([]);
-  const [tables, setTables] = useState([
-    { id: 1, number: 1, seats: 4, floor: 'ground', state: 'available' },
-    { id: 2, number: 2, seats: 2, floor: 'ground', state: 'available' },
-    { id: 3, number: 3, seats: 2, floor: 'ground', state: 'available' },
-    { id: 4, number: 4, seats: 2, floor: 'ground', state: 'available' },
-    { id: 5, number: 5, seats: 4, floor: 'ground', state: 'available' },
-    { id: 6, number: 6, seats: 2, floor: 'ground', state: 'available' },
-    { id: 7, number: 7, seats: 2, floor: 'ground', state: 'available' },
-    { id: 8, number: 8, seats: 2, floor: 'ground', state: 'available' },
-    { id: 9, number: 9, seats: 4, floor: 'ground', state: 'available' },
-    { id: 10, number: 10, seats: 8, floor: 'ground', state: 'available' },
-    { id: 11, number: 101, seats: 4, floor: 'first', state: 'available' },
-    { id: 12, number: 102, seats: 4, floor: 'first', state: 'available' },
-  ]);
+  const [tables, setTables] = useState(() => {
+    try {
+      const savedTables = localStorage.getItem('cafe-tables');
+      if (savedTables) return JSON.parse(savedTables);
+    } catch (e) {}
+    return [
+      { id: 1, number: 1, seats: 4, floor: 'ground', state: 'available' },
+      { id: 2, number: 2, seats: 2, floor: 'ground', state: 'available' },
+      { id: 3, number: 3, seats: 2, floor: 'ground', state: 'available' },
+      { id: 4, number: 4, seats: 2, floor: 'ground', state: 'available' },
+      { id: 5, number: 5, seats: 4, floor: 'ground', state: 'available' },
+      { id: 6, number: 6, seats: 2, floor: 'ground', state: 'available' },
+      { id: 7, number: 7, seats: 2, floor: 'ground', state: 'available' },
+      { id: 8, number: 8, seats: 2, floor: 'ground', state: 'available' },
+      { id: 9, number: 9, seats: 4, floor: 'ground', state: 'available' },
+      { id: 10, number: 10, seats: 8, floor: 'ground', state: 'available' },
+      { id: 11, number: 101, seats: 4, floor: 'first', state: 'available' },
+      { id: 12, number: 102, seats: 4, floor: 'first', state: 'available' },
+    ];
+  });
+
+  const [floors, setFloors] = useState(() => {
+    try {
+      const savedFloors = localStorage.getItem('cafe-floors');
+      if (savedFloors) return JSON.parse(savedFloors);
+    } catch (e) {}
+    return ['ground', 'first'];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('cafe-tables', JSON.stringify(tables));
+  }, [tables]);
+
+  useEffect(() => {
+    localStorage.setItem('cafe-floors', JSON.stringify(floors));
+  }, [floors]);
+
+  // CMS: Floor and Table CRUD logic
+  const handleAddFloor = (name) => {
+    if (name && !floors.includes(name.toLowerCase())) {
+      setFloors(prev => [...prev, name.toLowerCase()]);
+    }
+  };
+
+  const handleDeleteFloor = (floorName) => {
+    setFloors(prev => prev.filter(f => f !== floorName));
+    setTables(prev => prev.filter(t => t.floor !== floorName));
+  };
+
+  const handleAddTable = (floorName, numStr, seatsStr) => {
+    if (!numStr) return;
+    const newTable = {
+      id: Date.now(),
+      number: parseInt(numStr, 10),
+      seats: parseInt(seatsStr, 10) || 4,
+      floor: floorName,
+      state: 'available'
+    };
+    setTables(prev => [...prev, newTable]);
+  };
+
+  const handleDeleteTable = (tableId) => {
+    setTables(prev => prev.filter(t => t.id !== tableId));
+  };
 
   const addToast = (message, type) => {
     const id = Date.now();
@@ -204,6 +254,7 @@ const handleCloseSession = (result) => {
     openingBalance: session.openingBalance,
     cashSales: session.sales.cash,
     totalSales: session.sales.cash + session.sales.digital,
+    closingBalance: result.actualCash,
     difference: result.difference
   });
   setSession({
@@ -248,6 +299,11 @@ if (activeView === 'pos') {
         <UnifiedPOS
           session={session}
           tables={tables}
+          floors={floors}
+          onAddFloor={handleAddFloor}
+          onDeleteFloor={handleDeleteFloor}
+          onAddTable={handleAddTable}
+          onDeleteTable={handleDeleteTable}
           toasts={toasts}
           onOrderSent={handleOrderSent}
           onPaymentComplete={handlePaymentComplete}
