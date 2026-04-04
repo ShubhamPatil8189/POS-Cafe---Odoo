@@ -33,7 +33,7 @@ const mockProducts = [
   { id: 702, name: 'Cheesecake', price: 280, category: 'desserts', calories: 510, image: 'https://images.unsplash.com/photo-1524351199678-941a58a3df50?q=80&w=600&auto=format&fit=crop', available: true },
 ];
 
-export default function POSLayout({ onNavigate }) {
+export default function POSLayout({ onNavigate, onCheckoutSuccess }) {
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState([]);
@@ -139,6 +139,7 @@ export default function POSLayout({ onNavigate }) {
         onPaymentSuccess={() => {
           setCart([]);
           setShowPayment(false);
+          if (onCheckoutSuccess) onCheckoutSuccess();
         }}
       />
 

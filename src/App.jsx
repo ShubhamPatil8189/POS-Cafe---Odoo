@@ -48,6 +48,10 @@ import Login from './components/auth/Login';
 import Signup from './components/auth/Signup';
 import POSLayout from './components/pos/POSLayout';
 
+import Dashboard from './components/pos/Dashboard';
+import UnifiedPOS from './components/pos/UnifiedPOS';
+import { OpenSessionModal, CloseSessionModal } from './components/pos/SessionModals';
+
 // ─── Section Wrapper ─── //
 function Section({ title, description, children, id }) {
   return (
@@ -69,13 +73,105 @@ function Divider() {
 
 // ─── Showcase App ─── //
 export default function App() {
-  const [activeView, setActiveView] = useState('pos'); // 'login', 'signup', 'showcase', 'pos'
+  const [activeView, setActiveView] = useState('dashboard'); // 'login', 'signup', 'dashboard', 'pos'
+  
+  // -- Session State --
+  const [session, setSession] = useState({
+     status: 'closed',
+     openingBalance: 0,
+     sales: { cash: 0, digital: 0 }
+  });
+  const [lastSessionInfo, setLastSessionInfo] = useState(null);
+  const [showOpenModal, setShowOpenModal] = useState(false);
+  const [showCloseModal, setShowCloseModal] = useState(false);
 
-  const [activeItem, setActiveItem] = useState('dashboard');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [inputVal, setInputVal] = useState('');
+  // -- Floor Plan / Kitchen Flow State --
+  const [toasts, setToasts] = useState([]);
+  const [tables, setTables] = useState([
+    { id: 1, number: 1, seats: 4, floor: 'ground', state: 'available' },
+    { id: 2, number: 2, seats: 2, floor: 'ground', state: 'available' },
+    { id: 3, number: 3, seats: 2, floor: 'ground', state: 'available' },
+    { id: 4, number: 4, seats: 2, floor: 'ground', state: 'available' },
+    { id: 5, number: 5, seats: 4, floor: 'ground', state: 'available' },
+    { id: 6, number: 6, seats: 2, floor: 'ground', state: 'available' },
+    { id: 7, number: 7, seats: 2, floor: 'ground', state: 'available' },
+    { id: 8, number: 8, seats: 2, floor: 'ground', state: 'available' },
+    { id: 9, number: 9, seats: 4, floor: 'ground', state: 'available' },
+    { id: 10, number: 10, seats: 8, floor: 'ground', state: 'available' },
+    { id: 11, number: 101, seats: 4, floor: 'first', state: 'available' },
+    { id: 12, number: 102, seats: 4, floor: 'first', state: 'available' },
+  ]);
+
+  const addToast = (message, type) => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
+
+  // Kitchen simulation 
+  const handleOrderSent = (tableId, cart) => {
+    // 1. Mark as occupied
+    setTables(prev => prev.map(t => t.id === tableId ? { ...t, state: 'occupied' } : t));
+    addToast(`Order sent to kitchen 🍳`, 'success');
+    
+    // 2. Kitchen "Preparing" after 3s
+    setTimeout(() => {
+      setTables(prev => prev.map(t => t.id === tableId ? { ...t, state: 'preparing' } : t));
+      addToast(`Preparing Table ${tables.find(t=>t.id===tableId)?.number || ''} order`, 'preparing');
+      
+      // 3. Kitchen "Ready" after another 4s
+      setTimeout(() => {
+        setTables(prev => prev.map(t => t.id === tableId ? { ...t, state: 'occupied' } : t));
+        addToast(`Order ready for Table ${tables.find(t=>t.id===tableId)?.number || ''}`, 'success');
+      }, 4000);
+      
+    }, 3000);
+  };
+
+  const handlePaymentComplete = (amount, method, tableId) => {
+    // Update active session stats
+    setSession(prev => ({
+      ...prev,
+      sales: {
+        cash: method === 'cash' ? prev.sales.cash + amount : prev.sales.cash,
+        digital: method !== 'cash' ? prev.sales.digital + amount : prev.sales.digital
+      }
+    }));
+    
+    // Auto release table back to available
+    setTables(prev => prev.map(t => t.id === tableId ? { ...t, state: 'available' } : t));
+    addToast(`Table ${tables.find(t=>t.id===tableId)?.number || ''} payment completed`, 'success');
+  };
+
+  // Session Management
+  const handleOpenSession = (floatAmount) => {
+     setSession({
+        status: 'open',
+        openingBalance: floatAmount,
+        sales: { cash: 0, digital: 0 }
+     });
+     setShowOpenModal(false);
+     setActiveView('pos');
+  };
+
+  const handleCloseSession = (result) => {
+     setLastSessionInfo({
+        endTime: Date.now(),
+        openingBalance: session.openingBalance,
+        cashSales: session.sales.cash,
+        totalSales: session.sales.cash + session.sales.digital,
+        difference: result.difference
+     });
+     setSession({
+        status: 'closed',
+        openingBalance: 0,
+        sales: { cash: 0, digital: 0 }
+     });
+     setShowCloseModal(false);
+     setActiveView('dashboard');
+  };
 
   if (activeView === 'login') {
     return <Login onNavigate={setActiveView} />;
@@ -84,9 +180,47 @@ export default function App() {
   if (activeView === 'signup') {
     return <Signup onNavigate={setActiveView} />;
   }
+  
+  if (activeView === 'dashboard') {
+    return (
+      <>
+        <Dashboard 
+          session={session}
+          lastSessionInfo={lastSessionInfo}
+          onOpenSessionClick={() => setShowOpenModal(true)}
+          onLockScreen={() => setActiveView('login')}
+        />
+        <OpenSessionModal 
+          isOpen={showOpenModal} 
+          onClose={() => setShowOpenModal(false)}
+          onOpenSession={handleOpenSession}
+        />
+      </>
+    );
+  }
 
   if (activeView === 'pos') {
-    return <POSLayout onNavigate={setActiveView} />;
+    return (
+      <>
+        <UnifiedPOS 
+          session={session}
+          tables={tables}
+          toasts={toasts}
+          onOrderSent={handleOrderSent}
+          onPaymentComplete={handlePaymentComplete}
+          onCloseSessionClick={() => setShowCloseModal(true)}
+        />
+        <CloseSessionModal 
+          isOpen={showCloseModal} 
+          onClose={() => setShowCloseModal(false)}
+          onCloseSession={handleCloseSession}
+          sessionData={{
+            openingBalance: session.openingBalance,
+            cashSales: session.sales.cash
+          }}
+        />
+      </>
+    );
   }
 
   return (
