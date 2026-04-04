@@ -93,6 +93,32 @@ async function runTests() {
        await fetch(`${baseUrl}/tables/${tableId}/clear`, { method: 'PUT' });
        console.log(`✅ Success: Table ${tableId} manually cleared back to available.`);
     }
+    // 8. Test Reservations
+    console.log('\n[8] Testing POST /api/reservations (Create)...');
+    const resvRes = await fetch(`${baseUrl}/reservations`, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ 
+           table_id: tableId, 
+           customer_name: 'Test Customer', 
+           reserved_time: '2026-04-04 18:00:00',
+           expiry_time: '2026-04-04 19:00:00'
+         })
+    });
+    const reservation = await resvRes.json();
+    if (reservation.error) {
+       console.log(`❌ Failed: ${reservation.error}`);
+    } else {
+       console.log(`✅ Success: Created reservation ID ${reservation.id} for table ${tableId}`);
+       
+       console.log('\n[9] Testing PUT /api/reservations/:id/checkin...');
+       const checkinRes = await fetch(`${baseUrl}/reservations/${reservation.id}/checkin`, { method: 'PUT' });
+       const checkin = await checkinRes.json();
+       console.log(`✅ Success: Checked in reservation. Table status is now completed.`);
+       
+       // Clear table again
+       await fetch(`${baseUrl}/tables/${tableId}/clear`, { method: 'PUT' });
+    }
 
     console.log('\n--- 🎉 All Tests Executed ---');
     
