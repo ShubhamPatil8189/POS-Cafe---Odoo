@@ -33,6 +33,7 @@ export function kitchenLinesFromCart(cart) {
       productId: item.id,
       name: item.name,
       qty: item.quantity,
+      price: item.price,
       category: item.category ?? null,
       sendToKitchen: item.sendToKitchen === true,
       prepared: false,

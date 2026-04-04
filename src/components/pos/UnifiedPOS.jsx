@@ -32,6 +32,7 @@ export default function UnifiedPOS({
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState([]);
   const [showPayment, setShowPayment] = useState(false);
+  const [activeOrderToPay, setActiveOrderToPay] = useState(null);
 
   const currentTables = tables.filter((t) => t.floor === activeFloor);
 
@@ -126,6 +127,18 @@ export default function UnifiedPOS({
     setCart(nextCart);
     if (nextCart.length === 0) setSelectedTable(null);
   };
+
+  const { markPaid } = useOrders();
+  const handlePayOrder = (order) => {
+    setActiveOrderToPay(order);
+    setShowPayment(true);
+  };
+
+  const paymentMethods = [
+    { id: '1', name: 'Cash', type: 'cash', is_enabled: true },
+    { id: '2', name: 'UPI QR', type: 'upi', is_enabled: true },
+    { id: '3', name: 'Razorpay', type: 'digital', is_enabled: true },
+  ];
 
   const drawerTotal = session.openingBalance + session.sales.cash;
   const sessionSalesTotal = session.sales.cash + session.sales.digital;
@@ -255,7 +268,7 @@ export default function UnifiedPOS({
 
       {posMainView === 'orders' && (
         <div className="custom-scrollbar flex-1 overflow-y-auto bg-background px-4 py-6 md:px-8">
-          <OrdersPage />
+          <OrdersPage onPayOrder={handlePayOrder} />
         </div>
       )}
 
@@ -273,9 +286,27 @@ export default function UnifiedPOS({
 
       <PaymentScreen
         isOpen={showPayment}
-        onClose={() => setShowPayment(false)}
-        total={cartTotalWithTax}
+        onClose={() => {
+          setShowPayment(false);
+          setActiveOrderToPay(null);
+        }}
+        paymentMethods={paymentMethods}
+        orderId={activeOrderToPay?.id}
+        cartItems={activeOrderToPay ? activeOrderToPay.items : cart}
+        total={activeOrderToPay 
+          ? activeOrderToPay.items.reduce((acc, item) => acc + (item.price || 0) * item.qty, 0) 
+          : cartTotalWithTax
+        }
         onPaymentSuccess={(method) => {
+          if (activeOrderToPay) {
+            const total = activeOrderToPay.items.reduce((acc, item) => acc + (item.price || 0) * item.qty, 0);
+            markPaid(activeOrderToPay.id);
+            onPaymentComplete(total, method, activeOrderToPay.tableId || 1); // Mock tableId if missing
+            setActiveOrderToPay(null);
+            setShowPayment(false);
+            return;
+          }
+
           if (!selectedTable) return;
           
           // Auto-route to kitchen as "paid" if there are any kitchen-eligible items in cart
@@ -287,7 +318,6 @@ export default function UnifiedPOS({
           
           if (hasKitchenItems) {
             sendToKitchen(selectedTable.number, cart, true);
-            // We do not need to call onOrderSent here because payment immediately blocks the table.
           }
 
           onPaymentComplete(cartTotalWithTax, method, selectedTable.id);

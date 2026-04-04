@@ -8,13 +8,13 @@ import {
 import confetti from 'canvas-confetti';
 import API_BASE_URL from '../../config';
 
-export default function PaymentScreen({ isOpen, onClose, total, cartItems, paymentMethods = [], onPaymentSuccess }) {
+export default function PaymentScreen({ isOpen, onClose, total, cartItems, paymentMethods = [], orderId, onPaymentSuccess }) {
   // states: 'select' | 'upi_qr' | 'processing' | 'success' | 'error'
   const [paymentState, setPaymentState] = useState('select');
-  const [selectedMethod, setSelectedMethod] = useState('');
   const [qrCodeData, setQrCodeData] = useState(null);
   const [activePaymentId, setActivePaymentId] = useState(null);
   const [activeOrderId, setActiveOrderId] = useState(null);
+  const [selectedMethod, setSelectedMethod] = useState('');
 
   // Reset state when opened
   useEffect(() => {
@@ -73,7 +73,7 @@ export default function PaymentScreen({ isOpen, onClose, total, cartItems, payme
         body: JSON.stringify({
           product_id: item.id,
           product_name: item.name,
-          quantity: item.quantity,
+          quantity: item.quantity || item.qty,
           price: item.price,
           tax_rate: 5
         })
@@ -84,11 +84,12 @@ export default function PaymentScreen({ isOpen, onClose, total, cartItems, payme
 
   // ──────────────── HANDLE SELECTION ──────────────── //
   const handleSelectMethod = async (method) => {
-    setSelectedMethod(method.type);
+    setSelectedMethod(method);
     const token = localStorage.getItem('token');
     try {
       setPaymentState('processing');
       const order = await createOrderWithItems();
+      setActiveOrderId(order.id);
 
       if (method.type === 'cash') {
         const payRes = await fetch(`${API_BASE_URL}/payments`, {
@@ -113,7 +114,7 @@ export default function PaymentScreen({ isOpen, onClose, total, cartItems, payme
 
         setPaymentState('success');
         triggerConfetti();
-        setTimeout(() => onPaymentSuccess(method), 2000);
+        setTimeout(onPaymentSuccess, 2000);
 
       } else if (method.type === 'digital') {
          // RAZORPAY FLOW
@@ -152,7 +153,7 @@ export default function PaymentScreen({ isOpen, onClose, total, cartItems, payme
                 if (verifyRes.ok) {
                    setPaymentState('success');
                    triggerConfetti();
-                   setTimeout(() => onPaymentSuccess(method), 2000);
+                   setTimeout(onPaymentSuccess, 2000);
                 } else {
                    setPaymentState('error');
                 }
@@ -211,7 +212,7 @@ export default function PaymentScreen({ isOpen, onClose, total, cartItems, payme
 
       setPaymentState('success');
       triggerConfetti();
-      setTimeout(() => onPaymentSuccess('upi'), 2000);
+      setTimeout(onPaymentSuccess, 2000);
     } catch (err) {
        console.error(err);
        setPaymentState('error');
@@ -283,11 +284,11 @@ export default function PaymentScreen({ isOpen, onClose, total, cartItems, payme
                     <div className="space-y-4 w-full">
                       <p className="text-sm font-semibold text-text-tertiary uppercase tracking-wider mb-2 pl-1">Select Method</p>
                       
-                      {paymentMethods.filter(m => m.is_enabled).length === 0 && (
+                      {paymentMethods.filter(m => m.is_enabled !== false).length === 0 && (
                         <p className="text-sm text-text-secondary text-center p-4">No payment methods enabled.</p>
                       )}
 
-                      {paymentMethods.filter(m => m.is_enabled).map(method => (
+                      {paymentMethods.filter(m => m.is_enabled !== false).map(method => (
                         <motion.button 
                           key={method.id}
                           whileTap={{ scale: 0.95 }}

@@ -15,8 +15,8 @@ function formatCategory(slug) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export default function OrdersPage() {
-  const { orders, markPaid } = useOrders();
+export default function OrdersPage({ onPayOrder }) {
+  const { orders } = useOrders();
   const sorted = [...orders].sort((a, b) => b.createdAt - a.createdAt);
 
   return (
@@ -79,7 +79,7 @@ export default function OrdersPage() {
                       type="button"
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => markPaid(o.id)}
+                      onClick={() => onPayOrder(o)}
                       className="rounded-full bg-primary-600 px-4 py-2 text-xs font-bold uppercase tracking-wide text-white shadow-md shadow-primary-600/25"
                     >
                       Mark as Paid
