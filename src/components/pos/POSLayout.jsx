@@ -7,7 +7,7 @@ import ProductModal from './ProductModal';
 import { Search, Plus, Home, LayoutGrid, PackagePlus } from 'lucide-react';
 import API_BASE_URL from '../../config';
 
-export default function POSLayout({ onNavigate }) {
+export default function POSLayout({ onNavigate, onCheckoutSuccess }) {
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState([]);
@@ -189,6 +189,7 @@ export default function POSLayout({ onNavigate }) {
         onPaymentSuccess={() => {
           setCart([]);
           setShowPayment(false);
+          if (onCheckoutSuccess) onCheckoutSuccess();
         }}
       />
 

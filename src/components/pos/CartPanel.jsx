@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, User, ChevronRight, Plus, Minus, Receipt } from 'lucide-react';
+import { ChefHat, Trash2, User, ChevronRight, Plus, Minus, Receipt } from 'lucide-react';
 import { Button } from '../ui'; // Assuming we can use generic buttons from UI
+import { isKitchenEligibleProduct } from '../../config/kitchenConfig';
 
 export default function CartPanel({ cartItems, updateQuantity, clearCart, onPay }) {
   const [total, setTotal] = useState(0);
@@ -39,7 +40,19 @@ export default function CartPanel({ cartItems, updateQuantity, clearCart, onPay 
                 <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="font-semibold text-text-primary text-sm truncate">{item.name}</h4>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-semibold text-text-primary text-sm truncate">{item.name}</h4>
+                  {isKitchenEligibleProduct({
+                    name: item.name,
+                    category: item.category,
+                    sendToKitchen: item.sendToKitchen,
+                  }) && (
+                    <span className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-orange-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-orange-800 ring-1 ring-orange-200/80">
+                      <ChefHat className="h-2.5 w-2.5" />
+                      KDS
+                    </span>
+                  )}
+                </div>
                 <div className="text-primary-700 font-bold mb-1">₹{item.price * item.quantity}</div>
                 <div className="flex items-center gap-2">
                   <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="w-6 h-6 rounded bg-surface hover:bg-primary-50 flex items-center justify-center text-text-secondary hover:text-primary-600 transition-colors active:scale-90">

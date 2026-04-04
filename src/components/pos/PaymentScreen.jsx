@@ -11,6 +11,7 @@ import API_BASE_URL from '../../config';
 export default function PaymentScreen({ isOpen, onClose, total, cartItems, paymentMethods = [], onPaymentSuccess }) {
   // states: 'select' | 'upi_qr' | 'processing' | 'success' | 'error'
   const [paymentState, setPaymentState] = useState('select');
+  const [selectedMethod, setSelectedMethod] = useState('');
   const [qrCodeData, setQrCodeData] = useState(null);
   const [activePaymentId, setActivePaymentId] = useState(null);
   const [activeOrderId, setActiveOrderId] = useState(null);
@@ -19,6 +20,7 @@ export default function PaymentScreen({ isOpen, onClose, total, cartItems, payme
   useEffect(() => {
     if (isOpen) {
       setPaymentState('select');
+      setSelectedMethod('');
     }
   }, [isOpen]);
 
@@ -82,6 +84,7 @@ export default function PaymentScreen({ isOpen, onClose, total, cartItems, payme
 
   // ──────────────── HANDLE SELECTION ──────────────── //
   const handleSelectMethod = async (method) => {
+    setSelectedMethod(method.type);
     const token = localStorage.getItem('token');
     try {
       setPaymentState('processing');
@@ -110,7 +113,7 @@ export default function PaymentScreen({ isOpen, onClose, total, cartItems, payme
 
         setPaymentState('success');
         triggerConfetti();
-        setTimeout(onPaymentSuccess, 2000);
+        setTimeout(() => onPaymentSuccess(method), 2000);
 
       } else if (method.type === 'digital') {
          // RAZORPAY FLOW
@@ -149,7 +152,7 @@ export default function PaymentScreen({ isOpen, onClose, total, cartItems, payme
                 if (verifyRes.ok) {
                    setPaymentState('success');
                    triggerConfetti();
-                   setTimeout(onPaymentSuccess, 2000);
+                   setTimeout(() => onPaymentSuccess(method), 2000);
                 } else {
                    setPaymentState('error');
                 }
@@ -208,7 +211,7 @@ export default function PaymentScreen({ isOpen, onClose, total, cartItems, payme
 
       setPaymentState('success');
       triggerConfetti();
-      setTimeout(onPaymentSuccess, 2000);
+      setTimeout(() => onPaymentSuccess('upi'), 2000);
     } catch (err) {
        console.error(err);
        setPaymentState('error');
