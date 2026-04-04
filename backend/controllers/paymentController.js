@@ -58,6 +58,12 @@ exports.validatePayment = async (req, res) => {
     }
     const order = orders[0];
 
+    // Block concurrent double payments
+    if (order.status === 'completed') {
+       await conn.rollback();
+       return res.status(200).json({ status: 'success', message: 'Order already completed', order_status: 'completed' });
+    }
+
     // 4. Update order status to 'completed'
     await conn.query('UPDATE orders SET status = ? WHERE id = ?', ['completed', order.id]);
 
@@ -205,7 +211,8 @@ exports.verifyRazorpayPayment = async (req, res) => {
     } = req.body;
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !order_id || !amount) {
-      return res.status(400).json({ error: 'Missing required Razorpay payment details or order_id/amount.' });
+      console.log("PAYMENT VERIFY FAILED 400. Body:", req.body);
+      return res.status(400).json({ error: 'Missing required Razorpay payment details or order_id/amount.', received: req.body });
     }
 
     const secret = process.env.RAZORPAY_KEY_SECRET;
@@ -217,6 +224,9 @@ exports.verifyRazorpayPayment = async (req, res) => {
       .digest('hex');
 
     if (generated_signature !== razorpay_signature) {
+      console.log("PAYMENT VERIFY FAILED 400. SIGNATURE MISMATCH.");
+      console.log("Generated:", generated_signature);
+      console.log("Received:", razorpay_signature);
       return res.status(400).json({ error: 'Invalid Payment Signature' });
     }
 
@@ -232,9 +242,9 @@ exports.verifyRazorpayPayment = async (req, res) => {
 
       // 2. Insert new payment record
       const [paymentResult] = await conn.query(
-        `INSERT INTO payments (order_id, method_id, amount, status)
-         VALUES (?, ?, ?, 'completed')`,
-        [order_id, method_id, amount]
+        `INSERT INTO payments (order_id, method_id, amount, status, transaction_id)
+         VALUES (?, ?, ?, 'completed', ?)`,
+        [order_id, method_id, amount, razorpay_payment_id]
       );
       const paymentId = paymentResult.insertId;
 
@@ -245,6 +255,12 @@ exports.verifyRazorpayPayment = async (req, res) => {
          return res.status(404).json({ error: 'Order not found.' });
       }
       const order = orders[0];
+
+      // Block concurrent double payments
+      if (order.status === 'completed') {
+         await conn.rollback();
+         return res.status(200).json({ status: 'success', message: 'Order already completed', order_status: 'completed' });
+      }
 
       await conn.query('UPDATE orders SET status = ? WHERE id = ?', ['completed', order.id]);
 

@@ -13,18 +13,29 @@ export default function POSLayout({ onNavigate }) {
   const [cart, setCart] = useState([]);
   const [showPayment, setShowPayment] = useState(false);
   const [products, setProducts] = useState([]);
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [loading, setLoading] = useState(true);
   
   // Product Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
 
-  const fetchProducts = async () => {
+  const fetchProductsAndMethods = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/products`);
-      if (!response.ok) throw new Error('Failed to fetch products');
-      const data = await response.json();
-      setProducts(data);
+      const [prodRes, payRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/products`),
+        fetch(`${API_BASE_URL}/payment-methods`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        })
+      ]);
+      if (!prodRes.ok) throw new Error('Failed to fetch products');
+      if (!payRes.ok) throw new Error('Failed to fetch payment methods');
+      
+      const prodData = await prodRes.json();
+      const payData = await payRes.json();
+      
+      setProducts(prodData);
+      setPaymentMethods(payData);
     } catch (err) {
       console.error('API Error:', err);
     } finally {
@@ -33,7 +44,7 @@ export default function POSLayout({ onNavigate }) {
   };
 
   useEffect(() => {
-    fetchProducts();
+    fetchProductsAndMethods();
   }, []);
 
   const cartTotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
@@ -73,7 +84,7 @@ export default function POSLayout({ onNavigate }) {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       if (!response.ok) throw new Error('Failed to delete product');
-      await fetchProducts();
+      await fetchProductsAndMethods();
     } catch (err) {
       alert(err.message);
     }
@@ -168,6 +179,8 @@ export default function POSLayout({ onNavigate }) {
         isOpen={showPayment} 
         onClose={() => setShowPayment(false)}
         total={cartTotalWithTax}
+        cartItems={cart}
+        paymentMethods={paymentMethods}
         onPaymentSuccess={() => {
           setCart([]);
           setShowPayment(false);
@@ -178,7 +191,7 @@ export default function POSLayout({ onNavigate }) {
       <ProductModal 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSave={fetchProducts}
+        onSave={fetchProductsAndMethods}
         product={editingProduct}
       />
 

@@ -1,4 +1,5 @@
 const express = require('express');
+// trigger restart
 const cors = require('cors');
 
 // ── Route Imports ──────────────────────────────────────
@@ -28,22 +29,7 @@ const app = express();
 
 /* ---------- CORS ---------- */
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-
-    const allowedOrigins = [
-      'http://localhost:5173',
-      'http://localhost:5174',
-      'http://localhost:3000',
-      'http://localhost:5000'
-    ];
-
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: true, // Allow all origins during development
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));

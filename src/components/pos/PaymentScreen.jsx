@@ -6,10 +6,14 @@ import {
   ChevronLeft, Loader2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import API_BASE_URL from '../../config';
 
-export default function PaymentScreen({ isOpen, onClose, total, onPaymentSuccess }) {
+export default function PaymentScreen({ isOpen, onClose, total, cartItems, paymentMethods = [], onPaymentSuccess }) {
   // states: 'select' | 'upi_qr' | 'processing' | 'success' | 'error'
   const [paymentState, setPaymentState] = useState('select');
+  const [qrCodeData, setQrCodeData] = useState(null);
+  const [activePaymentId, setActivePaymentId] = useState(null);
+  const [activeOrderId, setActiveOrderId] = useState(null);
 
   // Reset state when opened
   useEffect(() => {
@@ -45,31 +49,170 @@ export default function PaymentScreen({ isOpen, onClose, total, onPaymentSuccess
     frame();
   };
 
-  const handleSelectMethod = (method) => {
-    if (method === 'upi') {
-      setPaymentState('upi_qr');
-    } else {
-      // For cash/card, go straight to processing then success
+  // ──────────────── CREATE ORDER HELPER ──────────────── //
+  const createOrderWithItems = async () => {
+    const token = localStorage.getItem('token');
+    
+    // 1. Create Draft Order
+    const orderRes = await fetch(`${API_BASE_URL}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ order_type: 'pos' })
+    });
+    if (!orderRes.ok) throw new Error('Order creation failed');
+    const order = await orderRes.json();
+    setActiveOrderId(order.id);
+    
+    // 2. Add Items
+    for (const item of cartItems) {
+      await fetch(`${API_BASE_URL}/orders/${order.id}/items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          product_id: item.id,
+          product_name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          tax_rate: 5
+        })
+      });
+    }
+    return order;
+  };
+
+  // ──────────────── HANDLE SELECTION ──────────────── //
+  const handleSelectMethod = async (method) => {
+    const token = localStorage.getItem('token');
+    try {
       setPaymentState('processing');
-      setTimeout(() => {
+      const order = await createOrderWithItems();
+
+      if (method.type === 'cash') {
+        const payRes = await fetch(`${API_BASE_URL}/payments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ order_id: order.id, payment_method_id: method.id, amount: total })
+        });
+        const payment = await payRes.json();
+        
+        await fetch(`${API_BASE_URL}/payments/validate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ payment_id: payment.id })
+        });
+
+        // 3. Mark Order Completed
+        await fetch(`${API_BASE_URL}/orders/${order.id}/status`, {
+           method: 'PUT',
+           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+           body: JSON.stringify({ status: 'completed' })
+        });
+
         setPaymentState('success');
         triggerConfetti();
-        setTimeout(onPaymentSuccess, 2000); // clear cart back out
-      }, 1500);
+        setTimeout(onPaymentSuccess, 2000);
+
+      } else if (method.type === 'digital') {
+         // RAZORPAY FLOW
+        const rzorderRes = await fetch(`${API_BASE_URL}/payments/razorpay/order`, {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+           body: JSON.stringify({ order_id: order.id })
+        });
+        const rzdata = await rzorderRes.json();
+        
+        if (!rzorderRes.ok || !rzdata.id) {
+           throw new Error(rzdata.error || 'Failed to initialize Razorpay order.');
+        }
+
+        const options = {
+           key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_SZPJgRzIwA6PO6', // Mapped to backend .env key
+           amount: rzdata.amount,
+           currency: "INR",
+           name: "POS Cafe Odoo",
+           description: `Order ${order.order_number}`,
+           order_id: rzdata.id,
+           handler: async function (response) {
+             try {
+                setPaymentState('processing');
+                const verifyRes = await fetch(`${API_BASE_URL}/payments/razorpay/verify`, {
+                   method: 'POST',
+                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                   body: JSON.stringify({
+                     razorpay_order_id: response.razorpay_order_id,
+                     razorpay_payment_id: response.razorpay_payment_id,
+                     razorpay_signature: response.razorpay_signature,
+                     order_id: order.id,
+                     amount: total
+                   })
+                });
+                if (verifyRes.ok) {
+                   setPaymentState('success');
+                   triggerConfetti();
+                   setTimeout(onPaymentSuccess, 2000);
+                } else {
+                   setPaymentState('error');
+                }
+             } catch (err) {
+                console.error(err);
+                setPaymentState('error');
+             }
+           },
+           prefill: { name: "POS Customer", email: "customer@pos.local", contact: "9999999999" },
+           theme: { color: "#3D1D6B" },
+           modal: {
+             ondismiss: function() { setPaymentState('select'); }
+           }
+        };
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+
+      } else if (method.type === 'upi') {
+        const payRes = await fetch(`${API_BASE_URL}/payments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ order_id: order.id, payment_method_id: method.id, amount: total })
+        });
+        const payment = await payRes.json();
+        setActivePaymentId(payment.id);
+
+        const qrRes = await fetch(`${API_BASE_URL}/payments/upi-qr/${order.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const qrJson = await qrRes.json();
+        setQrCodeData(qrJson.qr_data);
+        setPaymentState('upi_qr');
+      }
+
+    } catch (err) {
+      console.error(err);
+      setPaymentState('error');
     }
   };
 
-  const simulateUPIPayment = (success = true) => {
+  const confirmUPIPayment = async () => {
     setPaymentState('processing');
-    setTimeout(() => {
-      if (success) {
-        setPaymentState('success');
-        triggerConfetti();
-        setTimeout(onPaymentSuccess, 2500);
-      } else {
-        setPaymentState('error');
-      }
-    }, 2000);
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${API_BASE_URL}/payments/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ payment_id: activePaymentId })
+      });
+      
+      await fetch(`${API_BASE_URL}/orders/${activeOrderId}/status`, {
+         method: 'PUT',
+         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+         body: JSON.stringify({ status: 'completed' })
+      });
+
+      setPaymentState('success');
+      triggerConfetti();
+      setTimeout(onPaymentSuccess, 2000);
+    } catch (err) {
+       console.error(err);
+       setPaymentState('error');
+    }
   };
 
   return (
@@ -137,59 +280,34 @@ export default function PaymentScreen({ isOpen, onClose, total, onPaymentSuccess
                     <div className="space-y-4 w-full">
                       <p className="text-sm font-semibold text-text-tertiary uppercase tracking-wider mb-2 pl-1">Select Method</p>
                       
-                      <motion.button 
-                        whileTap={{ scale: 0.95 }}
-                        whileHover={{ y: -2, boxShadow: '0 10px 25px -5px rgba(245, 158, 11, 0.2)' }}
-                        onClick={() => handleSelectMethod('upi')}
-                        className="w-full flex items-center justify-between p-5 rounded-2xl bg-white border border-border hover:border-accent-300 transition-all shadow-sm group"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-xl bg-accent-50 flex items-center justify-center group-hover:bg-accent-500 transition-colors">
-                            <QrCode className="w-6 h-6 text-accent-600 group-hover:text-white" />
-                          </div>
-                          <div className="text-left">
-                            <span className="block font-bold text-text-primary text-lg">UPI / QR Scan</span>
-                            <span className="text-sm text-text-secondary">Google Pay, PhonePe, Paytm</span>
-                          </div>
-                        </div>
-                        <ChevronLeft className="w-5 h-5 text-text-tertiary rotate-180" />
-                      </motion.button>
+                      {paymentMethods.filter(m => m.is_enabled).length === 0 && (
+                        <p className="text-sm text-text-secondary text-center p-4">No payment methods enabled.</p>
+                      )}
 
-                      <motion.button 
-                        whileTap={{ scale: 0.95 }}
-                        whileHover={{ y: -2, boxShadow: '0 10px 25px -5px rgba(61, 29, 107, 0.15)' }}
-                        onClick={() => handleSelectMethod('card')}
-                        className="w-full flex items-center justify-between p-5 rounded-2xl bg-white border border-border hover:border-primary-300 transition-all shadow-sm group"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center group-hover:bg-primary-600 transition-colors">
-                            <CreditCard className="w-6 h-6 text-primary-600 group-hover:text-white" />
+                      {paymentMethods.filter(m => m.is_enabled).map(method => (
+                        <motion.button 
+                          key={method.id}
+                          whileTap={{ scale: 0.95 }}
+                          whileHover={{ y: -2, boxShadow: '0 10px 25px -5px rgba(61, 29, 107, 0.15)' }}
+                          onClick={() => handleSelectMethod(method)}
+                          className="w-full flex items-center justify-between p-5 rounded-2xl bg-white border border-border hover:border-primary-300 transition-all shadow-sm group"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-primary-50 flex items-center justify-center group-hover:bg-primary-600 transition-colors">
+                              {method.type === 'upi' ? <QrCode className="w-6 h-6 text-primary-600 group-hover:text-white" /> : 
+                               method.type === 'digital' ? <CreditCard className="w-6 h-6 text-primary-600 group-hover:text-white" /> : 
+                               <Banknote className="w-6 h-6 text-primary-600 group-hover:text-white" />}
+                            </div>
+                            <div className="text-left">
+                              <span className="block font-bold text-text-primary text-lg">{method.name}</span>
+                              <span className="text-sm text-text-secondary">
+                                {method.type === 'upi' ? 'Scan QR Code' : method.type === 'digital' ? 'Razorpay Online' : 'Pay at Counter'}
+                              </span>
+                            </div>
                           </div>
-                          <div className="text-left">
-                            <span className="block font-bold text-text-primary text-lg">Card Terminal</span>
-                            <span className="text-sm text-text-secondary">Credit or Debit Card</span>
-                          </div>
-                        </div>
-                        <ChevronLeft className="w-5 h-5 text-text-tertiary rotate-180" />
-                      </motion.button>
-
-                      <motion.button 
-                        whileTap={{ scale: 0.95 }}
-                        whileHover={{ y: -2 }}
-                        onClick={() => handleSelectMethod('cash')}
-                        className="w-full flex items-center justify-between p-5 rounded-2xl bg-white border border-border hover:border-success-300 transition-all shadow-sm group"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-xl bg-success-50 flex items-center justify-center group-hover:bg-success-500 transition-colors">
-                            <Banknote className="w-6 h-6 text-success-600 group-hover:text-white" />
-                          </div>
-                          <div className="text-left">
-                            <span className="block font-bold text-text-primary text-lg">Cash</span>
-                            <span className="text-sm text-text-secondary">Receive at counter</span>
-                          </div>
-                        </div>
-                        <ChevronLeft className="w-5 h-5 text-text-tertiary rotate-180" />
-                      </motion.button>
+                          <ChevronLeft className="w-5 h-5 text-text-tertiary rotate-180" />
+                        </motion.button>
+                      ))}
                     </div>
                   </motion.div>
                 )}
@@ -219,12 +337,15 @@ export default function PaymentScreen({ isOpen, onClose, total, onPaymentSuccess
                       {/* QR Box */}
                       <div className="relative bg-white p-6 rounded-3xl shadow-xl border border-border">
                         <div className="w-48 h-48 bg-slate-100 rounded-xl flex items-center justify-center overflow-hidden">
-                          {/* Generic Placeholder QR from a QR generation service */}
-                          <img 
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=pay-${total}&color=3D1D6B`} 
-                            alt="Payment QR" 
-                            className="w-full h-full object-contain mix-blend-multiply" 
-                          />
+                          {qrCodeData ? (
+                            <img 
+                              src={qrCodeData} 
+                              alt="Payment QR" 
+                              className="w-full h-full object-contain mix-blend-multiply" 
+                            />
+                          ) : (
+                            <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+                          )}
                         </div>
                         <div className="mt-4 flex items-center justify-center gap-2 text-primary-700 font-semibold">
                           <Smartphone className="w-4 h-4" /> Open any UPI app
@@ -234,13 +355,13 @@ export default function PaymentScreen({ isOpen, onClose, total, onPaymentSuccess
 
                     <div className="mt-auto pt-10 w-full flex gap-3">
                       <button 
-                        onClick={() => simulateUPIPayment(false)}
+                        onClick={() => { setPaymentState('select'); }}
                         className="flex-1 py-3.5 bg-danger-50 text-danger-600 font-bold rounded-xl hover:bg-danger-100 transition-colors"
                       >
-                        Fail Test
+                        Cancel
                       </button>
                       <button 
-                        onClick={() => simulateUPIPayment(true)}
+                        onClick={confirmUPIPayment}
                         className="flex-1 py-3.5 bg-primary-600 text-white font-bold rounded-xl hover:bg-primary-700 shadow-lg shadow-primary-600/30 transition-all"
                       >
                         Confirm Sync

@@ -85,7 +85,12 @@ export default function CartPanel({ cartItems, updateQuantity, clearCart, onPay 
           <Button variant="danger" className="!bg-danger-50 !text-danger-600 hover:!bg-danger-100 shadow-none border-none" onClick={clearCart}>
              Clear
           </Button>
-          <Button variant="primary" className="!text-lg !py-4 shadow-glow-accent !bg-accent-500 hover:!bg-accent-600" onClick={onPay}>
+          <Button 
+            variant="primary" 
+            className="!text-lg !py-4 shadow-glow-accent !bg-accent-500 hover:!bg-accent-600 disabled:opacity-50 disabled:cursor-not-allowed" 
+            onClick={onPay}
+            disabled={cartItems.length === 0}
+          >
             Pay
             <ChevronRight className="w-5 h-5 ml-1" />
           </Button>
