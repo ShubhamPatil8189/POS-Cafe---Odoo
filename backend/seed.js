@@ -69,6 +69,7 @@ async function seed() {
         tax DECIMAL(5, 2) DEFAULT 0.00,
         uom VARCHAR(50) DEFAULT 'piece',
         description TEXT,
+        image_url VARCHAR(255),
         is_active BOOLEAN DEFAULT TRUE,
         send_to_kitchen BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -282,25 +283,33 @@ async function seed() {
 
     // Check if products already exist
     const [existingProducts] = await connection.query('SELECT id FROM products LIMIT 1');
-    if (existingProducts.length === 0) {
+    // If they exist but don't have images (check first row), we might want to clear them
+    const [firstProd] = await connection.query('SELECT image_url FROM products LIMIT 1');
+    
+    if (existingProducts.length === 0 || (firstProd.length > 0 && !firstProd[0].image_url)) {
+      if (existingProducts.length > 0) {
+        console.log('  🔄 Re-seeding products to add images...');
+        await connection.query('DELETE FROM products');
+      }
+      
       await connection.query(`
-        INSERT INTO products (name, category_id, price, tax, uom, description, send_to_kitchen) VALUES
-        ('Margherita Pizza', 1, 300.00, 5.00, 'piece', 'Classic tomato and mozzarella', TRUE),
-        ('Pepperoni Pizza', 1, 400.00, 5.00, 'piece', 'Loaded with pepperoni', TRUE),
-        ('Farmhouse Pizza', 1, 450.00, 5.00, 'piece', 'Fresh vegetables', TRUE),
-        ('Cappuccino', 2, 150.00, 5.00, 'cup', 'Frothy Italian coffee', TRUE),
-        ('Latte', 2, 180.00, 5.00, 'cup', 'Smooth and creamy', TRUE),
-        ('Espresso', 2, 120.00, 5.00, 'cup', 'Strong and bold', TRUE),
-        ('Alfredo Pasta', 3, 350.00, 5.00, 'plate', 'Creamy white sauce', TRUE),
-        ('Arrabbiata Pasta', 3, 320.00, 5.00, 'plate', 'Spicy red sauce', TRUE),
-        ('Classic Burger', 4, 250.00, 5.00, 'piece', 'Juicy beef patty', TRUE),
-        ('Cheese Burger', 4, 300.00, 5.00, 'piece', 'Double cheese', TRUE),
-        ('Water Bottle', 5, 20.00, 0.00, 'bottle', '500ml', FALSE),
-        ('Cold Coffee', 5, 200.00, 5.00, 'glass', 'Iced cold coffee', FALSE),
-        ('Lemon Soda', 5, 80.00, 5.00, 'glass', 'Fresh lemon soda', FALSE),
-        ('Chocolate Brownie', 6, 180.00, 5.00, 'piece', 'Warm chocolate brownie', TRUE)
+        INSERT INTO products (name, category_id, price, tax, uom, description, image_url, send_to_kitchen) VALUES
+        ('Margherita Pizza', 1, 300.00, 5.00, 'piece', 'Classic tomato and mozzarella', 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?q=80&w=600&auto=format&fit=crop', TRUE),
+        ('Pepperoni Pizza', 1, 400.00, 5.00, 'piece', 'Loaded with pepperoni', 'https://images.unsplash.com/photo-1628840042765-356cda07504e?q=80&w=600&auto=format&fit=crop', TRUE),
+        ('Farmhouse Pizza', 1, 450.00, 5.00, 'piece', 'Fresh vegetables', 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?q=80&w=600&auto=format&fit=crop', TRUE),
+        ('Cappuccino', 2, 150.00, 5.00, 'cup', 'Frothy Italian coffee', 'https://images.unsplash.com/photo-1534778101976-62847782c213?q=80&w=600&auto=format&fit=crop', TRUE),
+        ('Latte', 2, 180.00, 5.00, 'cup', 'Smooth and creamy', 'https://images.unsplash.com/photo-1593443320739-77f74939d0da?q=80&w=600&auto=format&fit=crop', TRUE),
+        ('Espresso', 2, 120.00, 5.00, 'cup', 'Strong and bold', 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?q=80&w=600&auto=format&fit=crop', TRUE),
+        ('Alfredo Pasta', 3, 350.00, 5.00, 'plate', 'Creamy white sauce', 'https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?q=80&w=600&auto=format&fit=crop', TRUE),
+        ('Arrabbiata Pasta', 3, 320.00, 5.00, 'plate', 'Spicy red sauce', 'https://images.unsplash.com/photo-1563379926898-05f4575a45d8?q=80&w=600&auto=format&fit=crop', TRUE),
+        ('Classic Burger', 4, 250.00, 5.00, 'piece', 'Juicy beef patty', 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=600&auto=format&fit=crop', TRUE),
+        ('Cheese Burger', 4, 300.00, 5.00, 'piece', 'Double cheese', 'https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=600&auto=format&fit=crop', TRUE),
+        ('Water Bottle', 5, 20.00, 0.00, 'bottle', '500ml', 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?q=80&w=600&auto=format&fit=crop', FALSE),
+        ('Cold Coffee', 5, 200.00, 5.00, 'glass', 'Iced cold coffee', 'https://images.unsplash.com/photo-1517701604599-bb24b3180ddf?q=80&w=600&auto=format&fit=crop', FALSE),
+        ('Lemon Soda', 5, 80.00, 5.00, 'glass', 'Fresh lemon soda', 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?q=80&w=600&auto=format&fit=crop', FALSE),
+        ('Chocolate Brownie', 6, 210.00, 5.00, 'piece', 'Walnut brownie', 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?q=80&w=600&auto=format&fit=crop', TRUE)
       `);
-      console.log('  ✅ 14 products inserted');
+      console.log('  ✅ 14 products inserted with images');
     } else {
       console.log('  ⏭️  Products already exist');
     }
@@ -342,7 +351,6 @@ async function seed() {
     console.log('\n🎉 Seed completed successfully!');
   } catch (error) {
     console.error('❌ Seed error:', error.message);
-    process.exit(1);
   } finally {
     if (connection) await connection.end();
     process.exit(0);

@@ -4,6 +4,8 @@ import AuthLayout from './AuthLayout';
 import AuthInput from './AuthInput';
 import AuthButton from './AuthButton';
 
+import API_BASE_URL from '../../config';
+
 export default function Signup({ onNavigate }) {
   const [formData, setFormData] = useState({
     name: '',
@@ -12,6 +14,7 @@ export default function Signup({ onNavigate }) {
     confirmPassword: ''
   });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   // Simple password strength calculation
   const getPasswordStrength = (pass) => {
@@ -29,14 +32,42 @@ export default function Signup({ onNavigate }) {
   const strengthColors = ['bg-border', 'bg-danger-500', 'bg-warning-500', 'bg-success-400', 'bg-success-600'];
   const strengthLabels = ['Too weak', 'Weak', 'Fair', 'Good', 'Strong'];
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    setError('');
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
       setLoading(false);
-      alert('Signup clicked');
-    }, 1000);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          role: 'admin' // Defaulting to admin for testing
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Signup failed');
+      }
+
+      setLoading(false);
+      alert('Account created successfully! Please login.');
+      onNavigate('login');
+    } catch (err) {
+      setLoading(false);
+      setError(err.message);
+    }
   };
 
   return (
@@ -45,6 +76,12 @@ export default function Signup({ onNavigate }) {
         <h1 className="text-3xl font-bold text-text-primary mb-2">Create Account ✨</h1>
         <p className="text-text-secondary">Join Odoo Cafe to manage your restaurant</p>
       </div>
+
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 text-sm rounded">
+          {error}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <AuthInput

@@ -10,6 +10,8 @@ exports.getAll = async (req, res) => {
       ORDER BY p.id ASC
     `);
 
+    // Fetch variants and extras for all products (unchanged)
+
     // Fetch variants and extras for all products
     const productIds = products.map(p => p.id);
 
@@ -34,6 +36,8 @@ exports.getAll = async (req, res) => {
     // Attach variants and extras to each product
     const result = products.map(product => ({
       ...product,
+      image: product.image_url, // Map for frontend
+      available: product.is_active ? true : false, // Map for frontend
       category: {
         id: product.category_id,
         name: product.category_name,
@@ -85,6 +89,7 @@ exports.getById = async (req, res) => {
 
     res.json({
       ...product,
+      image: product.image_url, // Map for frontend
       category: {
         id: product.category_id,
         name: product.category_name,

@@ -47,6 +47,7 @@ import {
 import Login from './components/auth/Login';
 import Signup from './components/auth/Signup';
 import POSLayout from './components/pos/POSLayout';
+import FloorPlan from './components/pos/FloorPlan';
 
 // ─── Section Wrapper ─── //
 function Section({ title, description, children, id }) {
@@ -87,6 +88,25 @@ export default function App() {
 
   if (activeView === 'pos') {
     return <POSLayout onNavigate={setActiveView} />;
+  }
+
+  if (activeItem === 'floors') {
+    return (
+      <div className="flex h-screen overflow-hidden bg-background">
+        <Sidebar 
+          activeItem={activeItem} 
+          onItemClick={setActiveItem} 
+          collapsed={sidebarCollapsed} 
+          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} 
+        />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Navbar title="Floor Plan" subtitle="Manage your restaurant layout" />
+          <main className="flex-1 overflow-y-auto p-6">
+             <FloorPlan />
+          </main>
+        </div>
+      </div>
+    );
   }
 
   return (

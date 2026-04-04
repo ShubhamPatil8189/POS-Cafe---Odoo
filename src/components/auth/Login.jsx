@@ -4,18 +4,41 @@ import AuthLayout from './AuthLayout';
 import AuthInput from './AuthInput';
 import AuthButton from './AuthButton';
 
+import API_BASE_URL from '../../config';
+
 export default function Login({ onNavigate }) {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    setError('');
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+      
+      // Save token and user info
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      
       setLoading(false);
-      alert('Login clicked');
-    }, 1000);
+      onNavigate('pos');
+    } catch (err) {
+      setLoading(false);
+      setError(err.message);
+    }
   };
 
   return (
@@ -24,6 +47,12 @@ export default function Login({ onNavigate }) {
         <h1 className="text-3xl font-bold text-text-primary mb-2">Welcome Back 👋</h1>
         <p className="text-text-secondary">Login to manage your restaurant</p>
       </div>
+
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 text-sm rounded">
+          {error}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <AuthInput
