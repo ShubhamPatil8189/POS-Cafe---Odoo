@@ -5,14 +5,35 @@ import CartPanel from './CartPanel';
 import { Search, Menu, Home } from 'lucide-react';
 
 const mockProducts = [
+  // Hot Coffee
   { id: 1, name: 'Latte Macchiato', price: 180, category: 'coffee', calories: 120, image: 'https://images.unsplash.com/photo-1593443320739-77f74939d0da?q=80&w=600&auto=format&fit=crop', available: true },
   { id: 2, name: 'Espresso Double', price: 120, category: 'coffee', calories: 10, image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 3, name: 'Iced Caramel Cafe', price: 220, category: 'iced', calories: 240, image: 'https://images.unsplash.com/photo-1461023058943-07cb84a0d8da?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 4, name: 'Almond Croissant', price: 150, category: 'pastry', calories: 310, image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 5, name: 'Avocado Toast', price: 320, category: 'food', calories: 420, image: 'https://images.unsplash.com/photo-1603048297172-c92544798d5e?q=80&w=600&auto=format&fit=crop', available: true },
-  { id: 6, name: 'Matcha Boba', price: 260, category: 'iced', calories: 180, image: 'https://images.unsplash.com/photo-1558857463-bd150a006cbd?q=80&w=600&auto=format&fit=crop', available: false },
-  { id: 7, name: 'Blueberry Muffin', price: 130, category: 'pastry', calories: 280, image: 'https://images.unsplash.com/photo-1607958996333-41aef7caefaa?q=80&w=600&auto=format&fit=crop', available: true },
   { id: 8, name: 'Flat White', price: 160, category: 'coffee', calories: 110, image: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 9, name: 'Cappuccino', price: 170, category: 'coffee', calories: 130, image: 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 10, name: 'Americano', price: 140, category: 'coffee', calories: 15, image: 'https://images.unsplash.com/photo-1551030173-122aabc4489c?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 11, name: 'Café Mocha', price: 190, category: 'coffee', calories: 210, image: 'https://images.unsplash.com/photo-1578314675249-a6910f80cc4e?q=80&w=600&auto=format&fit=crop', available: true },
+  // Iced Beverages
+  { id: 3, name: 'Iced Caramel Cafe', price: 220, category: 'iced', calories: 240, image: 'https://images.unsplash.com/photo-1461023058943-07cb84a0d8da?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 6, name: 'Matcha Boba', price: 260, category: 'iced', calories: 180, image: 'https://images.unsplash.com/photo-1558857463-bd150a006cbd?q=80&w=600&auto=format&fit=crop', available: false },
+  { id: 12, name: 'Iced Latte', price: 200, category: 'iced', calories: 150, image: 'https://images.unsplash.com/photo-1517701604599-bb29b565090c?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 13, name: 'Cold Brew', price: 190, category: 'iced', calories: 10, image: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 14, name: 'Lemon Iced Tea', price: 150, category: 'iced', calories: 90, image: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?q=80&w=600&auto=format&fit=crop', available: true },
+  // Pastries
+  { id: 4, name: 'Almond Croissant', price: 150, category: 'pastry', calories: 310, image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 7, name: 'Blueberry Muffin', price: 130, category: 'pastry', calories: 280, image: 'https://images.unsplash.com/photo-1607958996333-41aef7caefaa?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 15, name: 'Chocolate Cookie', price: 90, category: 'pastry', calories: 220, image: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 16, name: 'Cinnamon Roll', price: 160, category: 'pastry', calories: 380, image: 'https://images.unsplash.com/photo-1509365465985-25d11c17e812?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 17, name: 'Butter Croissant', price: 120, category: 'pastry', calories: 260, image: 'https://images.unsplash.com/photo-1517433670267-08bbd4be890f?q=80&w=600&auto=format&fit=crop', available: true },
+  // Hot Food
+  { id: 5, name: 'Avocado Toast', price: 320, category: 'food', calories: 420, image: 'https://images.unsplash.com/photo-1603048297172-c92544798d5e?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 18, name: 'Breakfast Sandwich', price: 280, category: 'food', calories: 510, image: 'https://images.unsplash.com/photo-1525351484163-7529414344d8?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 19, name: 'Grilled Cheese', price: 240, category: 'food', calories: 480, image: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 20, name: 'Caesar Salad', price: 290, category: 'food', calories: 340, image: 'https://images.unsplash.com/photo-1550304943-4f24f54ddde9?q=80&w=600&auto=format&fit=crop', available: true },
+  // Merchandise
+  { id: 21, name: 'Cafe Mug', price: 450, category: 'merch', image: 'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 22, name: 'Coffee Beans 250g', price: 650, category: 'merch', image: 'https://images.unsplash.com/photo-1559525839-b184a4d698c7?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 23, name: 'Canvas Tote Bag', price: 350, category: 'merch', image: 'https://images.unsplash.com/photo-1544816155-12df9643f363?q=80&w=600&auto=format&fit=crop', available: true },
+  { id: 24, name: 'Insulated Tumbler', price: 850, category: 'merch', image: 'https://images.unsplash.com/photo-1582121516243-7f28edfe25e0?q=80&w=600&auto=format&fit=crop', available: true },
 ];
 
 export default function POSLayout({ onNavigate }) {
