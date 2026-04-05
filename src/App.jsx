@@ -54,6 +54,7 @@ import UnifiedPOS from './components/pos/UnifiedPOS';
 import { OpenSessionModal, CloseSessionModal } from './components/pos/SessionModals';
 import { OrderProvider } from './components/restaurant/OrderContext';
 import { ProductCatalogProvider } from './context/ProductCatalogContext';
+import AnalyticsDashboard from './components/restaurant/AnalyticsDashboard';
 
 // ─── Section Wrapper ─── //
 function Section({ title, description, children, id }) {
@@ -395,12 +396,7 @@ export default function App() {
       case 'menu': return <ProductManagement user={user} />;
       case 'orders': return <OrdersPage />;
       case 'floors': return <FloorPlan />;
-      case 'analytics': return (
-        <div className="p-8 text-center bg-white rounded-3xl shadow-sm border border-border">
-          <h2 className="text-2xl font-black mb-4">Analytics Dashboard</h2>
-          <p className="text-text-secondary">Full business analytics and reporting module.</p>
-        </div>
-      );
+      case 'analytics': return <AnalyticsDashboard />;
       default: return null;
     }
   };
