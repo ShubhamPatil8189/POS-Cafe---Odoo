@@ -13,14 +13,14 @@ const STORAGE_KEY = 'cafe-product-catalog-v1';
 
 function mergeWithSeed(savedList) {
   const byId = new Map(INITIAL_PRODUCTS.map((p) => [p.id, { ...p }]));
+  
+  // 1. Overwrite initial products with saved versions
+  // 2. Insert any new products that are not in the initial set (like the 40 new ones)
   for (const p of savedList) {
-    if (byId.has(p.id)) {
-      byId.set(p.id, { ...byId.get(p.id), ...p });
-    }
+    const existing = byId.get(p.id) || {};
+    byId.set(p.id, { ...existing, ...p });
   }
-  for (const p of INITIAL_PRODUCTS) {
-    if (!byId.has(p.id)) byId.set(p.id, { ...p });
-  }
+
   return Array.from(byId.values()).sort((a, b) => a.id - b.id);
 }
 

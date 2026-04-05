@@ -139,7 +139,7 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, category_id, price, tax, uom, description, image_url, is_active, send_to_kitchen } = req.body;
+    const { name, category_id, price, tax, uom, description, image_url, is_active, send_to_kitchen, available, sendToKitchen } = req.body;
 
     const [existing] = await pool.query('SELECT * FROM products WHERE id = ?', [id]);
     if (existing.length === 0) {
@@ -147,6 +147,10 @@ exports.update = async (req, res) => {
     }
 
     const p = existing[0];
+
+    // Map frontend camelCase to backend snake_case
+    const final_is_active = is_active !== undefined ? is_active : (available !== undefined ? available : p.is_active);
+    const final_send_to_kitchen = send_to_kitchen !== undefined ? send_to_kitchen : (sendToKitchen !== undefined ? sendToKitchen : p.send_to_kitchen);
 
     await pool.query(
       `UPDATE products 
@@ -160,8 +164,8 @@ exports.update = async (req, res) => {
         uom || p.uom,
         description !== undefined ? description : p.description,
         image_url !== undefined ? image_url : p.image_url,
-        is_active !== undefined ? is_active : p.is_active,
-        send_to_kitchen !== undefined ? send_to_kitchen : p.send_to_kitchen,
+        final_is_active,
+        final_send_to_kitchen,
         id
       ]
     );
