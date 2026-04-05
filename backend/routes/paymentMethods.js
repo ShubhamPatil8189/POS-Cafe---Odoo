@@ -23,20 +23,20 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { is_enabled, upi_id } = req.body;
-    
+
     const updates = [];
     const values = [];
     if (is_enabled !== undefined) { updates.push('is_enabled = ?'); values.push(is_enabled); }
     if (upi_id !== undefined) { updates.push('upi_id = ?'); values.push(upi_id); }
-    
+
     if (updates.length > 0) {
       values.push(id);
       await pool.query(`UPDATE payment_methods SET ${updates.join(', ')} WHERE id = ?`, values);
     }
-    
+
     const [rows] = await pool.query('SELECT * FROM payment_methods WHERE id = ?', [id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Payment method not found' });
-    
+
     res.json({ ...rows[0], is_enabled: rows[0].is_enabled === 1 });
   } catch (error) {
     console.error('Error updating payment method:', error);

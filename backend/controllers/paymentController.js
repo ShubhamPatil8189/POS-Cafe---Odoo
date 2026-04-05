@@ -3,7 +3,7 @@ const qrcode = require('qrcode');
 
 // ── Create Payment ─────────────────────────────────────
 exports.createPayment = async (req, res) => {
-  try { 
+  try {
     const { order_id, payment_method_id, amount } = req.body;
 
     if (!order_id || !amount) {
@@ -27,7 +27,7 @@ exports.createPayment = async (req, res) => {
 // ── Validate Payment ───────────────────────────────────
 exports.validatePayment = async (req, res) => {
   const { payment_id } = req.body;
-  
+
   if (!payment_id) {
     return res.status(400).json({ error: 'payment_id is required.' });
   }
@@ -105,7 +105,7 @@ exports.generateUPIQR = async (req, res) => {
     }
     const upiId = methods[0].upi_id;
     const amount = Number(order.total).toFixed(2);
-    
+
     // Construct UPI Deep Link URL
     // Format: upi://pay?pa={upi_id}&pn={MerchantName}&am={Amount}&cu=INR&tn={Note}
     const merchantName = encodeURIComponent('POS Cafe');
