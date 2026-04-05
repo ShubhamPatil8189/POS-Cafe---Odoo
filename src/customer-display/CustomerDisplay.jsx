@@ -7,17 +7,35 @@ import {
   useMotionValue,
   animate,
 } from 'framer-motion';
-import { useOrders } from '../components/restaurant/OrderContext';
 import DisplayCard from './DisplayCard';
 import OrderTicker from './OrderTicker';
 
-/** KDS uses `completed`; spec `ready` supported for future API */
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+/** KDS uses `completed` or `ready` */
 function isReadyStatus(status) {
   return status === 'ready' || status === 'completed';
 }
 
 export default function CustomerDisplay() {
-  const { orders } = useOrders();
+  const [orders, setOrders] = useState([]);
+
+  useEffect(() => {
+    async function fetchBoard() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/customer-display/board`);
+        if (res.ok) {
+          const data = await res.json();
+          setOrders(data);
+        }
+      } catch (e) {
+        // silent fail on TV
+      }
+    }
+    fetchBoard();
+    const id = setInterval(fetchBoard, 4000);
+    return () => clearInterval(id);
+  }, []);
 
   const preparingOrders = useMemo(
     () => orders.filter((o) => o.status === 'preparing'),

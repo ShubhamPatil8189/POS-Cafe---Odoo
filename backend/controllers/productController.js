@@ -38,11 +38,9 @@ exports.getAll = async (req, res) => {
       ...product,
       image: product.image_url, // Map for frontend
       available: product.is_active ? true : false, // Map for frontend
-      category: {
-        id: product.category_id,
-        name: product.category_name,
-        color: product.category_color
-      },
+      sendToKitchen: Boolean(product.send_to_kitchen),
+      category: product.category_name ? product.category_name.toLowerCase() : null,
+      category_name: product.category_name,
       variants: variants.filter(v => v.product_id === product.id),
       extras: extras.filter(e => e.product_id === product.id)
     }));
@@ -90,11 +88,10 @@ exports.getById = async (req, res) => {
     res.json({
       ...product,
       image: product.image_url, // Map for frontend
-      category: {
-        id: product.category_id,
-        name: product.category_name,
-        color: product.category_color
-      },
+      available: product.is_active ? true : false,
+      sendToKitchen: Boolean(product.send_to_kitchen),
+      category: product.category_name ? product.category_name.toLowerCase() : null,
+      category_name: product.category_name,
       attributes,
       variants,
       extras

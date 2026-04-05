@@ -343,10 +343,23 @@ export default function App() {
     );
   }
 
-  if (activeView === 'pos') {
-    return (
-      <OrderProvider onExternalPayment={handleMarkPaid}>
-        <ProductCatalogProvider>
+  // Handle other views (Kitchen, Menu, etc.) by showing the Sidebar
+  const renderViewContent = () => {
+    // Role Gate: if staff tries to access these particular views, return restricted message
+    if (user?.role === 'staff' && ['floors', 'analytics', 'menu'].includes(activeView)) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full p-12 text-center">
+          <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-3xl flex items-center justify-center mb-6 shadow-sm border border-amber-100">
+            <Lock className="w-10 h-10" />
+          </div>
+          <h2 className="text-2xl font-black text-slate-800 mb-2">Access Restricted</h2>
+          <p className="text-slate-500 max-w-sm">This module required administrator permissions. Please contact your manager if you need access to this page.</p>
+        </div>
+      );
+    }
+    switch (activeView) {
+      case 'pos':
+        return (
           <UnifiedPOS
             user={user}
             session={session}
@@ -362,36 +375,7 @@ export default function App() {
             onCloseSessionClick={() => setShowCloseModal(true)}
             onLogout={handleLogout}
           />
-          <CloseSessionModal
-            isOpen={showCloseModal}
-            onClose={() => setShowCloseModal(false)}
-            onCloseSession={handleCloseSession}
-            sessionData={{
-              openingBalance: session.openingBalance,
-              cashSales: session.sales.cash,
-            }}
-          />
-        </ProductCatalogProvider>
-      </OrderProvider>
-    );
-  }
-
-  // Handle other views (Kitchen, Menu, etc.) by showing the Sidebar
-  const renderViewContent = () => {
-    // Role Gate: if staff tries to access these particular views, return restricted message
-    if (user?.role === 'staff' && ['floors', 'analytics', 'menu'].includes(activeView)) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full p-12 text-center">
-          <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-3xl flex items-center justify-center mb-6 shadow-sm border border-amber-100">
-            <Lock className="w-10 h-10" />
-          </div>
-          <h2 className="text-2xl font-black text-slate-800 mb-2">Access Restricted</h2>
-          <p className="text-slate-500 max-w-sm">This module required administrator permissions. Please contact your manager if you need access to this page.</p>
-        </div>
-      );
-    }
-
-    switch (activeView) {
+        );
       case 'kitchen': return <KitchenDashboard />;
       case 'menu': return <ProductManagement user={user} />;
       case 'orders': return <OrdersPage />;
@@ -402,22 +386,34 @@ export default function App() {
   };
 
   // Add 'floors' and 'analytics' to the list of views compatible with the main interior layout
-  if (['kitchen', 'menu', 'orders', 'floors', 'analytics'].includes(activeView)) {
-    return (
-      <div className="h-screen flex flex-col overflow-hidden bg-background">
-        <Navbar title={activeView === 'floors' ? 'Floor Plan' : activeView.charAt(0).toUpperCase() + activeView.slice(1)} />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          <OrderProvider onExternalPayment={() => {}}>
-            <ProductCatalogProvider>
-              {renderViewContent()}
-            </ProductCatalogProvider>
-          </OrderProvider>
-        </main>
-      </div>
-    );
-  }
+  return (
+    <OrderProvider onExternalPayment={handleMarkPaid}>
+      <ProductCatalogProvider>
+        <div className="h-screen flex flex-col overflow-hidden bg-background">
+          {['kitchen', 'menu', 'orders', 'floors', 'analytics'].includes(activeView) && (
+            <Navbar title={activeView === 'floors' ? 'Floor Plan' : activeView.charAt(0).toUpperCase() + activeView.slice(1)} />
+          )}
+          <main className="flex-1 overflow-y-auto">
+            {['kitchen', 'menu', 'orders', 'floors', 'analytics'].includes(activeView) ? (
+              <div className="p-4 md:p-6">
+                {renderViewContent()}
+              </div>
+            ) : (
+              renderViewContent()
+            )}
+          </main>
 
-  // Final fallback to dashboard if somehow in an invalid state
-  setActiveView('dashboard');
-  return null;
+          <CloseSessionModal
+            isOpen={showCloseModal}
+            onClose={() => setShowCloseModal(false)}
+            onCloseSession={handleCloseSession}
+            sessionData={{
+              openingBalance: session.openingBalance,
+              cashSales: session.sales.cash,
+            }}
+          />
+        </div>
+      </ProductCatalogProvider>
+    </OrderProvider>
+  );
 }

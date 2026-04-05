@@ -60,8 +60,8 @@ export default function PaymentScreen({ isOpen, onClose, total, onPaymentSuccess
         // Notify parent on success with payment method
         setTimeout(() => {
           onPaymentSuccess(method);
-        }, 2000);
-      }, 1500);
+        }, 800);
+      }, 600);
     }
   };
 
@@ -73,8 +73,8 @@ export default function PaymentScreen({ isOpen, onClose, total, onPaymentSuccess
         // Notify parent on success with payment method
         setTimeout(() => {
           onPaymentSuccess('upi');
-        }, 3000);
-      }, 2000);
+        }, 1000);
+      }, 500);
   };
 
   return (

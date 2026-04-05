@@ -16,27 +16,22 @@ export function isKitchenProductName(name) {
   return isKitchenEligibleProduct({ name, category: undefined });
 }
 
-/**
- * Lines sent to KDS — shape matches a future API payload.
- * orderId on the ticket === POS order number (same as `id` on kitchen order).
- */
-export function kitchenLinesFromCart(cart) {
-  return cart
-    .filter((item) =>
-      isKitchenEligibleProduct({
-        name: item.name,
-        category: item.category,
-        sendToKitchen: item.sendToKitchen,
-      })
-    )
-    .map((item) => ({
+export function fullLinesFromCart(cart) {
+  return cart.map((item) => {
+    const isKitchen = isKitchenEligibleProduct({
+      name: item.name,
+      category: item.category,
+      sendToKitchen: item.sendToKitchen,
+    });
+    return {
       productId: item.id,
       name: item.name,
       qty: item.quantity,
       category: item.category ?? null,
-      sendToKitchen: item.sendToKitchen === true,
-      prepared: false,
-    }));
+      sendToKitchen: isKitchen,
+      prepared: !isKitchen,
+    };
+  });
 }
 
 function loadPersisted() {
@@ -95,11 +90,10 @@ export function OrderProvider({ children, onExternalPayment }) {
    */
   const sendToKitchen = useCallback(
     (tableNumber, cart, customerName = null, isPaid = false) => {
-      const lines = kitchenLinesFromCart(cart);
-      if (lines.length === 0) {
-        pushToast('Add a kitchen item (pizza, pasta, burger…) to send to KDS', 'preparing');
-        return false;
-      }
+      const lines = fullLinesFromCart(cart);
+      if (lines.length === 0) return false;
+
+      const hasPrepItems = lines.some((l) => l.sendToKitchen);
 
       /** `id` is the order number shown as Ticket # / Order # on KDS and Orders page */
       const order = {
@@ -108,16 +102,22 @@ export function OrderProvider({ children, onExternalPayment }) {
         tableNumber,
         customerName,
         items: lines,
-        status: 'toCook',
+        status: hasPrepItems ? 'toCook' : 'completed',
         createdAt: Date.now(),
+        completedAt: hasPrepItems ? undefined : Date.now(),
         paid: isPaid,
         source: 'pos',
       };
 
       setOrders((prev) => [...prev, order]);
       setNextOrderId((n) => n + 1);
-      triggerKitchenIcon();
-      pushToast('New Order Received 🍽️', 'success');
+
+      if (hasPrepItems) {
+        triggerKitchenIcon();
+        pushToast('New Order Received 🍽️', 'success');
+      } else {
+        pushToast('Order locally completed ✅', 'success');
+      }
       return true;
     },
     [nextOrderId, pushToast, triggerKitchenIcon]
@@ -165,6 +165,13 @@ export function OrderProvider({ children, onExternalPayment }) {
     [orders, pushToast, onExternalPayment]
   );
 
+  const markTableOrdersPaid = useCallback(
+    (tableNumber) => {
+      setOrders(prev => prev.map(o => o.tableNumber === tableNumber ? { ...o, paid: true } : o));
+    },
+    []
+  );
+
   const ordersByStatus = useMemo(() => {
     const buckets = { toCook: [], preparing: [], completed: [] };
     orders.forEach((o) => {
@@ -181,6 +188,7 @@ export function OrderProvider({ children, onExternalPayment }) {
       advanceOrder,
       toggleItemPrepared,
       markPaid,
+      markTableOrdersPaid,
       kitchenPulse,
       kitchenGlow,
       kdsToasts,
@@ -195,6 +203,7 @@ export function OrderProvider({ children, onExternalPayment }) {
       advanceOrder,
       toggleItemPrepared,
       markPaid,
+      markTableOrdersPaid,
       kitchenPulse,
       kitchenGlow,
       kdsToasts,
