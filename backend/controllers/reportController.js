@@ -239,54 +239,109 @@ exports.exportPDF = async (req, res) => {
     `;
     const [orders] = await pool.query(query, [...productParams, ...f.params]);
 
-    const doc = new PDFDocument({ margin: 50 });
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename=sales_report.pdf');
     doc.pipe(res);
 
-    // ── Header ──
-    doc.fontSize(22).font('Helvetica-Bold').text('POS Cafe — Sales Report', { align: 'center' });
-    doc.moveDown(0.4);
-    doc.fontSize(10).font('Helvetica').fillColor('#666')
-      .text(`Generated: ${new Date().toLocaleString('en-IN')}`, { align: 'center' });
-    doc.moveDown(1.5);
+    // ── Header Styling ──
+    doc.rect(0, 0, 612, 100).fill('#6d28d9'); // Solid header bar
+    doc.fontSize(24).font('Helvetica-Bold').fillColor('#ffffff').text('POS CAFE', 40, 30);
+    doc.fontSize(14).font('Helvetica').text('Sales & Revenue Report', 40, 60);
+    doc.fontSize(9).text(`Generated: ${new Date().toLocaleString('en-IN')}`, 40, 80, { align: 'right', width: 532 });
 
-    // ── Table header ──
-    doc.fontSize(10).font('Helvetica-Bold').fillColor('#000');
-    doc.text('Order #', 50, doc.y, { width: 130, continued: true });
-    doc.text('Date', { width: 150, continued: true });
-    doc.text('Staff', { width: 110, continued: true });
-    doc.text('Method', { width: 70, continued: true });
-    doc.text('Total (₹)', { width: 80, align: 'right' });
-    doc.moveDown(0.3);
-    doc.moveTo(50, doc.y).lineTo(560, doc.y).strokeColor('#ddd').stroke();
-    doc.moveDown(0.5);
+    doc.moveDown(4);
+
+    // ── Column Definitions ──
+    const colOrder = 40;
+    const colDate = 160;
+    const colStaff = 310;
+    const colMethod = 430;
+    const colTotal = 500;
+
+    // ── Table Header ──
+    const drawTableHeader = (y) => {
+      doc.rect(40, y - 5, 532, 20).fill('#f1f5f9');
+      doc.fontSize(10).font('Helvetica-Bold').fillColor('#475569');
+      doc.text('ORDER #', colOrder, y);
+      doc.text('DATE & TIME', colDate, y);
+      doc.text('STAFF', colStaff, y);
+      doc.text('METHOD', colMethod, y);
+      doc.text('TOTAL (₹)', colTotal, y, { width: 72, align: 'right' });
+      doc.moveTo(40, y + 15).lineTo(572, y + 15).strokeColor('#e2e8f0').lineWidth(1).stroke();
+    };
+
+    drawTableHeader(doc.y);
+    doc.moveDown(1);
 
     let totalRevenue = 0;
-    doc.font('Helvetica').fontSize(9);
-    orders.forEach((order, i) => {
-      const y = doc.y;
-      if (i % 2 === 0) {
-        doc.rect(50, y - 4, 510, 18).fillColor('#f9fafb').fill();
-        doc.fillColor('#000');
-      }
-      doc.text(order.order_number || '—', 50, y, { width: 130, continued: true });
-      doc.text(new Date(order.date).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }), { width: 150, continued: true });
-      doc.text(order.staff_name || '—', { width: 110, continued: true });
-      doc.text(order.payment_method || '—', { width: 70, continued: true });
-      doc.text(`${parseFloat(order.total || 0).toFixed(2)}`, { width: 80, align: 'right' });
-      totalRevenue += parseFloat(order.total || 0);
+    doc.font('Helvetica').fontSize(9).fillColor('#1e293b');
 
-      if (doc.y > 700) { doc.addPage(); }
+    orders.forEach((order, i) => {
+      // Page break check
+      if (doc.y > 750) {
+        doc.addPage();
+        drawTableHeader(40);
+        doc.y = 65;
+        doc.font('Helvetica').fontSize(9).fillColor('#1e293b');
+      }
+
+      const y = doc.y;
+      
+      // Zebra striping
+      if (i % 2 !== 0) {
+        doc.rect(40, y - 4, 532, 18).fillColor('#f8fafc').fill();
+      }
+      doc.fillColor('#1e293b');
+
+      // Data Rows
+      const orderNum = order.order_number || '—';
+      doc.text(orderNum.length > 20 ? orderNum.substring(0, 18) + '..' : orderNum, colOrder, y);
+      
+      const dateStr = new Date(order.date).toLocaleString('en-IN', { 
+        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' 
+      });
+      doc.text(dateStr, colDate, y);
+      
+      doc.text(order.staff_name || 'Admin', colStaff, y);
+      
+      const method = (order.payment_method || '—').toUpperCase();
+      doc.text(method, colMethod, y);
+      
+      doc.text(parseFloat(order.total || 0).toFixed(2), colTotal, y, { width: 72, align: 'right' });
+      
+      totalRevenue += parseFloat(order.total || 0);
+      doc.moveDown(0.8);
     });
 
-    doc.moveDown(1);
-    doc.moveTo(50, doc.y).lineTo(560, doc.y).strokeColor('#6d28d9').lineWidth(1.5).stroke();
-    doc.moveDown(0.6);
-    doc.font('Helvetica-Bold').fontSize(12).fillColor('#6d28d9');
-    doc.text(`Total Orders: ${orders.length}`, 50, doc.y, { continued: true });
-    doc.text(`Total Revenue: ₹${totalRevenue.toFixed(2)}`, { align: 'right' });
+    // ── Summary Section ──
+    doc.moveDown(2);
+    const summaryY = doc.y;
+    if (summaryY > 700) doc.addPage();
+    
+    doc.rect(340, doc.y, 232, 80).fill('#f8fafc').stroke('#e2e8f0');
+    doc.fillColor('#1e293b');
+    doc.fontSize(11).font('Helvetica-Bold').text('REPORT SUMMARY', 355, doc.y + 10);
+    doc.fontSize(10).font('Helvetica');
+    doc.text(`Total Orders:`, 355, doc.y + 15);
+    doc.text(`${orders.length}`, 520, doc.y - 12, { align: 'right', width: 40 });
+    
+    doc.fontSize(12).font('Helvetica-Bold').fillColor('#6d28d9');
+    doc.text(`GRAND TOTAL:`, 355, doc.y + 10);
+    doc.text(`₹${totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 450, doc.y - 14, { align: 'right', width: 110 });
+
+    // ── Footer ──
+    const pages = doc.bufferedPageRange();
+    for (let i = 0; i < pages.count; i++) {
+      doc.switchToPage(i);
+      doc.fontSize(8).fillColor('#94a3b8').text(
+        `Page ${i + 1} of ${pages.count} — System Generated Sales Report`,
+        40, 
+        doc.page.height - 30, 
+        { align: 'center' }
+      );
+    }
 
     doc.end();
   } catch (error) {

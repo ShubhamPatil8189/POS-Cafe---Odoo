@@ -135,7 +135,6 @@ export default function Signup({ onNavigate }) {
               onChange={(e) => setFormData({ ...formData, adminCode: e.target.value })}
               required
             />
-            <p className="mt-2 text-[11px] text-amber-700 font-medium">Secured with port code of your development 5173</p>
           </motion.div>
         )}
         <AuthInput
