@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, CheckCircle2, ChevronRight, Lock, DollarSign, CreditCard, Power } from 'lucide-react';
+import { Clock, CheckCircle2, ChevronRight, Lock, DollarSign, CreditCard, Power, UtensilsCrossed } from 'lucide-react';
 
-export default function Dashboard({ session, lastSessionInfo, onOpenSessionClick, onLockScreen }) {
+export default function Dashboard({ session, lastSessionInfo, onOpenSessionClick, onLockScreen, onNavigate }) {
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
@@ -107,17 +107,23 @@ export default function Dashboard({ session, lastSessionInfo, onOpenSessionClick
                 </div>
               )}
 
-              {/* Big CTA */}
-              <button 
-                onClick={onOpenSessionClick}
-                className="w-full relative group overflow-hidden bg-primary-600 hover:bg-primary-700 text-white rounded-[2rem] p-8 shadow-xl shadow-primary-600/30 transition-transform hover:scale-[1.02] active:scale-95"
-              >
-                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500 rounded-[2rem]" />
-                <div className="relative z-10 flex items-center justify-center gap-4">
-                  <span className="text-2xl font-black tracking-widest uppercase">Open Session</span>
-                  <ChevronRight className="w-8 h-8 opacity-80" />
-                </div>
-              </button>
+              {/* Secondary Actions */}
+              <div className="mt-8 flex gap-4">
+                <button 
+                  onClick={() => onNavigate('customer-display')}
+                  className="flex-1 bg-white border-2 border-primary-600/10 hover:border-primary-600/30 text-primary-700 rounded-3xl py-6 px-4 flex items-center justify-center gap-3 font-black uppercase tracking-widest text-sm transition-all shadow-sm hover:shadow-md"
+                >
+                  <UtensilsCrossed className="w-5 h-5 opacity-50" />
+                  Customer Board
+                </button>
+                <button 
+                  onClick={onLockScreen}
+                  className="flex-1 bg-white border-2 border-danger-600/10 hover:border-danger-600/30 text-danger-700 rounded-3xl py-6 px-4 flex items-center justify-center gap-3 font-black uppercase tracking-widest text-sm transition-all shadow-sm hover:shadow-md"
+                >
+                  <Lock className="w-5 h-5 opacity-50" />
+                  Lock Screen
+                </button>
+              </div>
 
            </motion.div>
         )}

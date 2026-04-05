@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App.jsx';
 import CustomerDisplay from './customer-display/CustomerDisplay.jsx';
+import RewardSpinWheel from './rewards/RewardSpinWheel.jsx';
 import { OrderProvider } from './components/restaurant/OrderContext.jsx';
 
 export default function Root() {
@@ -16,6 +17,7 @@ export default function Root() {
             </OrderProvider>
           } 
         />
+        <Route path="/rewards/:orderId" element={<RewardSpinWheel />} />
         <Route path="/*" element={<App />} />
       </Routes>
     </BrowserRouter>

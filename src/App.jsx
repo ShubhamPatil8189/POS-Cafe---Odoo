@@ -54,6 +54,8 @@ import UnifiedPOS from './components/pos/UnifiedPOS';
 import { OpenSessionModal, CloseSessionModal } from './components/pos/SessionModals';
 import { OrderProvider } from './components/restaurant/OrderContext';
 import { ProductCatalogProvider } from './context/ProductCatalogContext';
+import CustomerDisplay from './customer-display/CustomerDisplay';
+import RewardSpinWheel from './rewards/RewardSpinWheel';
 
 // ─── Section Wrapper ─── //
 function Section({ title, description, children, id }) {
@@ -112,6 +114,7 @@ export default function App() {
   const [lastSessionInfo, setLastSessionInfo] = useState(null);
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
+  const [rewardOrderId, setRewardOrderId] = useState(null);
 
   // -- Floor Plan / Kitchen Flow State --
   const [toasts, setToasts] = useState([]);
@@ -231,6 +234,7 @@ if (activeView === 'dashboard') {
         lastSessionInfo={lastSessionInfo}
         onOpenSessionClick={() => setShowOpenModal(true)}
         onLockScreen={() => setActiveView('login')}
+        onNavigate={setActiveView}
       />
       <OpenSessionModal
         isOpen={showOpenModal}
@@ -266,6 +270,18 @@ if (activeView === 'pos') {
       </ProductCatalogProvider>
     </OrderProvider>
   );
+}
+
+if (activeView === 'customer-display') {
+  return (
+    <OrderProvider>
+      <CustomerDisplay onNavigate={setActiveView} />
+    </OrderProvider>
+  );
+}
+
+if (activeView === 'rewards') {
+  return <RewardSpinWheel onNavigate={setActiveView} orderId={rewardOrderId} />;
 }
 
 if (activeItem === 'floors') {
