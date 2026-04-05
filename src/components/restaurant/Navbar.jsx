@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { BarChart2 } from 'lucide-react';
 import { useOrders } from './OrderContext';
 
 function KitchenPotIcon({ pulse, glow }) {
@@ -87,7 +88,7 @@ function KitchenPotIcon({ pulse, glow }) {
 /**
  * Secondary POS nav — matches existing white / primary Café POS chrome.
  */
-export default function Navbar({ currentView, onViewChange }) {
+export default function Navbar({ currentView, onViewChange, isAdmin }) {
   const { kitchenPulse, kitchenGlow } = useOrders();
 
   const tab = (id, label) => (
@@ -124,11 +125,32 @@ export default function Navbar({ currentView, onViewChange }) {
         </span>
       </div>
 
-      <nav className="flex max-w-[min(100%,28rem)] items-center gap-0.5 overflow-x-auto rounded-2xl bg-surface-hover/80 p-1 ring-1 ring-border sm:max-w-none">
+      <nav className="flex max-w-[min(100%,32rem)] items-center gap-0.5 overflow-x-auto rounded-2xl bg-surface-hover/80 p-1 ring-1 ring-border sm:max-w-none">
         {tab('tables', 'Tables')}
         {tab('menu', 'Menu')}
         {tab('orders', 'Orders')}
         {tab('kitchen', 'Kitchen')}
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => onViewChange('analytics')}
+            className={`relative shrink-0 flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition sm:px-4 sm:text-sm ${
+              currentView === 'analytics'
+                ? 'text-purple-800'
+                : 'text-text-secondary hover:text-purple-700'
+            }`}
+          >
+            {currentView === 'analytics' && (
+              <motion.span
+                layoutId="pos-subnav-pill"
+                className="absolute inset-0 rounded-xl bg-purple-50 ring-1 ring-purple-200/80"
+                transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+              />
+            )}
+            <BarChart2 className="relative z-10 h-3.5 w-3.5" />
+            <span className="relative z-10">Analytics</span>
+          </button>
+        )}
       </nav>
 
       <button
