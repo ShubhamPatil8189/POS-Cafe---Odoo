@@ -10,6 +10,8 @@ import {
 import DisplayCard from './DisplayCard';
 import OrderTicker from './OrderTicker';
 
+import { useOrders } from '../components/restaurant/OrderContext';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 /** KDS uses `completed` or `ready` */
@@ -18,24 +20,7 @@ function isReadyStatus(status) {
 }
 
 export default function CustomerDisplay() {
-  const [orders, setOrders] = useState([]);
-
-  useEffect(() => {
-    async function fetchBoard() {
-      try {
-        const res = await fetch(`${API_BASE_URL}/customer-display/board`);
-        if (res.ok) {
-          const data = await res.json();
-          setOrders(data);
-        }
-      } catch (e) {
-        // silent fail on TV
-      }
-    }
-    fetchBoard();
-    const id = setInterval(fetchBoard, 4000);
-    return () => clearInterval(id);
-  }, []);
+  const { orders } = useOrders();
 
   const preparingOrders = useMemo(
     () => orders.filter((o) => o.status === 'preparing'),
@@ -62,8 +47,15 @@ export default function CustomerDisplay() {
     const r = readyOrders
       .slice()
       .sort((a, b) => b.createdAt - a.createdAt)[0];
-    if (p) return `Now preparing order #${p.id}…`;
-    if (r) return `Order #${r.id} — please collect at the counter`;
+    
+    if (p) {
+      const name = p.customerName ? ` for ${p.customerName}` : '';
+      return `Now preparing order #${p.orderNumber || p.id}${name} (Table ${p.tableNumber})…`;
+    }
+    if (r) {
+      const name = r.customerName ? ` for ${r.customerName}` : '';
+      return `Order #${r.orderNumber || r.id}${name} — please collect at the counter`;
+    }
     return 'Welcome — your order will appear here';
   }, [preparingOrders, readyOrders]);
 

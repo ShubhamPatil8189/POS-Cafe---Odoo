@@ -64,6 +64,23 @@ export function OrderProvider({ children, onExternalPayment }) {
     );
   }, [orders, nextOrderId]);
 
+  // Cross-tab synchronization
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        try {
+          const { orders: newOrders, nextOrderId: newNextId } = JSON.parse(e.newValue);
+          setOrders(newOrders || []);
+          setNextOrderId(newNextId || 101);
+        } catch (err) {
+          console.error("Sync error:", err);
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   const pushToast = useCallback((message, type = 'success') => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setKdsToasts((prev) => [...prev, { id, message, type }]);
