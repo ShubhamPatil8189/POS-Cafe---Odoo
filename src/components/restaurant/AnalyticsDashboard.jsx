@@ -33,7 +33,7 @@ function MiniBarChart({ data }) {
             className="flex flex-1 flex-col justify-end items-center gap-1 group h-full max-w-[40px]"
           >
             <div
-              className="relative w-full rounded-t-lg bg-gradient-to-t from-primary-600 to-primary-400 shadow-sm shadow-primary-500/20 group-hover:from-primary-700 group-hover:to-primary-500 transition-all"
+              className="relative w-full rounded-t-lg bg-gradient-to-t from-primary-600 via-primary-500 to-cyan-400 shadow-sm shadow-primary-500/20 group-hover:from-primary-700 group-hover:to-cyan-500 transition-all"
               style={{ height: `${Math.max(pct, 4)}%` }}
             >
               <div className="absolute -top-7 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-900 px-2 py-1 text-[9px] font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-lg pointer-events-none">
@@ -52,7 +52,7 @@ function MiniBarChart({ data }) {
 
 // ─── Donut Chart ───────────────────────────────────────────────
 function DonutChart({ data }) {
-  const COLORS = ['#6d28d9', '#7c3aed', '#8b5cf6', '#a78bfa', '#c4b5fd'];
+  const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
   const total = data.reduce((s, d) => s + d.total, 0);
   let offset = 0;
   const R = 40, C = 2 * Math.PI * R;
@@ -524,7 +524,7 @@ export default function AnalyticsDashboard() {
                         initial={{ width: 0 }}
                         animate={{ width: `${pct}%` }}
                         transition={{ delay: 0.1 * i, type: 'spring', stiffness: 220 }}
-                        className="h-full rounded-full bg-gradient-to-r from-primary-500 to-primary-400"
+                        className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-300 shadow-sm shadow-amber-400/20"
                       />
                     </div>
                   </div>
