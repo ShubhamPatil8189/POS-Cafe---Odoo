@@ -1,5 +1,45 @@
 const pool = require('../config/database');
 
+// GET /api/customer-display/board
+exports.getActiveBoardOrders = async (req, res) => {
+  try {
+    // Fetch orders that are currently active or completed very recently
+    // This feeds the customer display (Preparing, Ready, and the Ticker)
+    const [orders] = await pool.query(
+      `SELECT id, order_number, table_id, status, is_paid, created_at, updated_at 
+       FROM orders 
+       WHERE (status IN ('preparing', 'ready', 'confirmed'))
+          OR (status = 'completed' AND updated_at >= DATE_SUB(NOW(), INTERVAL 15 MINUTE))
+       ORDER BY created_at ASC`
+    );
+
+    let items = [];
+    if (orders.length > 0) {
+      const orderIds = orders.map(o => o.id);
+      const [lines] = await pool.query(
+        `SELECT order_id, product_name as name, quantity as qty FROM order_lines WHERE order_id IN (?)`, 
+        [orderIds]
+      );
+      items = lines;
+    }
+
+    const formattedOrders = orders.map(o => ({
+      id: o.id,
+      orderNumber: o.order_number,
+      tableNumber: o.table_id || '—',
+      status: o.status,
+      paid: Boolean(o.is_paid),
+      createdAt: new Date(o.created_at).getTime(),
+      items: items.filter(i => i.order_id === o.id),
+    }));
+
+    res.json(formattedOrders);
+  } catch (error) {
+    console.error('Fetch active board orders error:', error);
+    res.status(500).json({ error: 'Failed to fetch board data.' });
+  }
+};
+
 exports.getCustomerDisplay = async (req, res) => {
   try {
     const { orderId } = req.params;

@@ -30,7 +30,7 @@ export default function UnifiedPOS({
   onPaymentComplete,
   onLogout,
 }) {
-  const { orders, sendToKitchen, kdsToasts } = useOrders();
+  const { orders, sendToKitchen, markTableOrdersPaid, kdsToasts } = useOrders();
   const { products } = useProductCatalog();
   const isAdmin = user?.role === 'admin';
 
@@ -364,18 +364,15 @@ export default function UnifiedPOS({
         onPaymentSuccess={(method) => {
           if (!selectedTable) return;
           
-          // Auto-route to kitchen as "paid" if there are any kitchen-eligible items in cart
-          const hasKitchenItems = cart.some(item => isKitchenEligibleProduct({
-            name: item.name,
-            category: item.category,
-            sendToKitchen: item.sendToKitchen
-          }));
-          
-          if (hasKitchenItems) {
-            sendToKitchen(selectedTable.number, cart, true);
-            // We do not need to call onOrderSent here because payment immediately blocks the table.
-          }
+          // 1. Mark ANY existing pending orders for this table as PAID in the context
+          markTableOrdersPaid(selectedTable.number);
 
+          // 2. Clear remaining items in cart by 'placing' them as a PAID order record
+          if (cart.length > 0) {
+            sendToKitchen(selectedTable.number, cart, customerName, true);
+          }
+          
+          // 3. UI and Persistent Table state updates
           onPaymentComplete(cartTotalWithTax, method, selectedTable.id);
           setCart([]);
           setShowPayment(false);
