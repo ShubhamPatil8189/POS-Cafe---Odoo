@@ -32,14 +32,21 @@ const bottomItems = [
 ];
 
 export default function Sidebar({
+  user,
   activeItem = 'dashboard',
   onItemClick,
   collapsed: controlledCollapsed,
   onToggle,
+  onLogout,
 }) {
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const collapsed = controlledCollapsed ?? internalCollapsed;
   const toggleCollapsed = onToggle ?? (() => setInternalCollapsed(!internalCollapsed));
+
+  const filteredMenuItems = menuItems.filter(item => {
+    if ((item.id === 'analytics' || item.id === 'floors') && user?.role === 'staff') return false;
+    return true;
+  });
 
   return (
     <aside
@@ -100,11 +107,7 @@ export default function Sidebar({
               {collapsed && (
                 <div className="absolute left-full ml-3 px-3 py-1.5 bg-primary-900 text-white text-xs font-medium rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 shadow-lg">
                   {item.label}
-                  {item.badge && (
-                    <span className="ml-2 px-1.5 py-0.5 bg-accent-500 text-white text-[10px] rounded-full">
-                      {item.badge}
-                    </span>
-                  )}
+                  {item.badge && ` (${item.badge})`}
                 </div>
               )}
             </button>
@@ -136,18 +139,22 @@ export default function Sidebar({
             ${collapsed ? 'justify-center' : ''}`}
         >
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent-400 to-accent-600 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm">
-            SP
+            {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
           </div>
           {!collapsed && (
             <div className="flex-1 overflow-hidden">
               <p className="text-sm font-semibold text-text-primary truncate">
-                Shubham P.
+                {user?.name || 'User'}
               </p>
-              <p className="text-[11px] text-text-tertiary truncate">Manager</p>
+              <p className="text-[11px] text-text-tertiary truncate capitalize">{user?.role || 'Staff'}</p>
             </div>
           )}
           {!collapsed && (
-            <button className="p-1 rounded-lg text-text-tertiary hover:text-danger-500 hover:bg-danger-50 transition-all cursor-pointer" title="Logout">
+            <button 
+              onClick={onLogout}
+              className="p-1 rounded-lg text-text-tertiary hover:text-danger-500 hover:bg-danger-50 transition-all cursor-pointer" 
+              title="Logout"
+            >
               <LogOut className="w-4 h-4" />
             </button>
           )}

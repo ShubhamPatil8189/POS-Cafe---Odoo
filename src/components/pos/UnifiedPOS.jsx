@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { motion, LayoutGroup } from 'framer-motion';
-import { Banknote, CreditCard, Power, LogOut } from 'lucide-react';
+import { motion, LayoutGroup, AnimatePresence } from 'framer-motion';
+import { Banknote, CreditCard, Power, LogOut, X, User } from 'lucide-react';
 
 import PaymentScreen from './PaymentScreen';
 import { ToastContainer } from '../floorplan/Toast';
@@ -14,19 +14,27 @@ import KitchenDashboard from '../restaurant/KitchenDashboard';
 import ProductManagement from '../restaurant/ProductManagement';
 import QRDashboard from '../restaurant/QRDashboard';
 import API_BASE_URL from '../../config';
+import AnalyticsDashboard from '../restaurant/AnalyticsDashboard';
 
 export default function UnifiedPOS({
+  user,
   session,
   tables,
+  floors,
+  onAddFloor,
+  onDeleteFloor,
+  onAddTable,
+  onDeleteTable,
   toasts,
   onCloseSessionClick,
   onOrderSent,
   onPaymentComplete,
   onLogout,
 }) {
-  const { orders, sendToKitchen, kdsToasts } = useOrders();
+  const { orders, sendToKitchen, markTableOrdersPaid, kdsToasts } = useOrders();
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -58,6 +66,16 @@ export default function UnifiedPOS({
   const [cart, setCart] = useState([]);
   const [showPayment, setShowPayment] = useState(false);
   const [activeOrderToPay, setActiveOrderToPay] = useState(null);
+  const [customerName, setCustomerName] = useState(null);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [tempName, setTempName] = useState('');
+
+  // Automatically gracefully transition to available floor if current active floor gets deleted
+  React.useEffect(() => {
+    if (floors.length > 0 && !floors.includes(activeFloor)) {
+      setActiveFloor(floors[0]);
+    }
+  }, [floors, activeFloor]);
 
   // Filter tables by floor ID (ensuring type comparison works)
   const currentTables = tables.filter((t) => Number(t.floor) === Number(activeFloor));
@@ -91,7 +109,7 @@ export default function UnifiedPOS({
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      if (!p.available) return false;
+      if (!p.available || !p.sendToKitchen) return false;
       const matchesCat =
         activeCategory === 'all' || 
         (p.category?.name === activeCategory) || 
@@ -140,9 +158,9 @@ export default function UnifiedPOS({
     }
   };
 
-  const handlePlaceOrder = () => {
+   const handlePlaceOrder = () => {
     if (cart.length === 0 || !selectedTable) return;
-    const ok = sendToKitchen(selectedTable.number, cart);
+    const ok = sendToKitchen(selectedTable.number, cart, customerName);
     if (!ok) return;
     onOrderSent(selectedTable.id, cart);
     const nextCart = cart.filter(
@@ -154,6 +172,7 @@ export default function UnifiedPOS({
         })
     );
     setCart(nextCart);
+    setCustomerName(null);
     if (nextCart.length === 0) setSelectedTable(null);
   };
 
@@ -241,6 +260,12 @@ export default function UnifiedPOS({
         </div>
 
         <div className="flex items-center gap-3">
+          <div className="hidden items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-full border border-border lg:flex">
+            <div className="w-5 h-5 rounded-full bg-primary-600 flex items-center justify-center text-[8px] font-black text-white">
+              {user?.name?.charAt(0) || 'U'}
+            </div>
+            <span className="text-[11px] font-bold text-text-secondary">{user?.name || 'User'}</span>
+          </div>
           <button
             type="button"
             onClick={onLogout}
@@ -249,18 +274,20 @@ export default function UnifiedPOS({
             <LogOut className="h-4 w-4" />
             <span className="hidden sm:inline">Log Out</span>
           </button>
-          <button
-            type="button"
-            onClick={onCloseSessionClick}
-            className="flex shrink-0 items-center gap-2 rounded-xl border border-danger-200 bg-danger-50 px-4 py-2 font-bold text-danger-700 shadow-sm transition-colors hover:bg-danger-100"
-          >
-            <Power className="h-4 w-4" />
-            <span className="hidden sm:inline">Close Session</span>
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={onCloseSessionClick}
+              className="flex shrink-0 items-center gap-2 rounded-xl border border-danger-200 bg-danger-50 px-4 py-2 font-bold text-danger-700 shadow-sm transition-colors hover:bg-danger-100"
+            >
+              <Power className="h-4 w-4" />
+              <span className="hidden sm:inline">Close Session</span>
+            </button>
+          )}
         </div>
       </div>
 
-      <Navbar currentView={posMainView} onViewChange={setPosMainView} />
+      <Navbar currentView={posMainView} onViewChange={setPosMainView} isAdmin={isAdmin} />
 
       {posMainView === 'tables' && (
         <div className="relative flex flex-1 overflow-hidden bg-background">
@@ -278,9 +305,15 @@ export default function UnifiedPOS({
               className="h-full z-10 flex shrink-0 border-r border-border"
             >
               <TableGrid
+                isAdmin={isAdmin}
                 activeFloor={activeFloor}
                 onFloorChange={setActiveFloor}
+                floors={floors}
+                onAddFloor={onAddFloor}
+                onDeleteFloor={onDeleteFloor}
                 tables={currentTables}
+                onAddTable={onAddTable}
+                onDeleteTable={onDeleteTable}
                 selectedTable={selectedTable}
                 onTableClick={handleTableClick}
                 sessionSalesTotal={sessionSalesTotal}
@@ -312,10 +345,18 @@ export default function UnifiedPOS({
                 addToCart={addToCart}
                 cart={cart}
                 updateQuantity={updateQuantity}
-                clearCart={() => setCart([])}
+                clearCart={() => {
+                  setCart([]);
+                  setCustomerName(null);
+                }}
                 cartTotalWithTax={cartTotalWithTax}
                 onSendToKitchen={handlePlaceOrder}
                 onPay={() => setShowPayment(true)}
+                customerName={customerName}
+                onCustomerClick={() => {
+                  setTempName(customerName || '');
+                  setShowCustomerModal(true);
+                }}
               />
             </motion.div>
           </LayoutGroup>
@@ -334,13 +375,30 @@ export default function UnifiedPOS({
 
       {posMainView === 'menu' && (
         <div className="custom-scrollbar flex-1 overflow-y-auto bg-background px-4 py-6 md:px-8">
-          <ProductManagement />
+          <ProductManagement user={user} />
         </div>
       )}
 
       {posMainView === 'kitchen' && (
         <div className="custom-scrollbar flex-1 overflow-y-auto bg-background px-4 py-6 md:px-8">
           <KitchenDashboard />
+        </div>
+      )}
+
+      {posMainView === 'analytics' && (
+        <div className="custom-scrollbar flex-1 overflow-y-auto bg-[#f8f8fb] px-4 py-6 md:px-8">
+          {isAdmin
+            ? <AnalyticsDashboard />
+            : (
+              <div className="flex flex-col items-center justify-center h-full py-24 text-center">
+                <div className="w-20 h-20 bg-purple-50 text-purple-400 rounded-3xl flex items-center justify-center mb-6 shadow-sm border border-purple-100">
+                  <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                </div>
+                <h2 className="text-2xl font-black text-slate-800 mb-2">Admin Only</h2>
+                <p className="text-slate-400 max-w-xs">Analytics & reporting is restricted to administrators.</p>
+              </div>
+            )
+          }
         </div>
       )}
 
@@ -369,23 +427,93 @@ export default function UnifiedPOS({
 
           if (!selectedTable) return;
           
-          // Auto-route to kitchen as "paid" if there are any kitchen-eligible items in cart
-          const hasKitchenItems = cart.some(item => isKitchenEligibleProduct({
-            name: item.name,
-            category: item.category,
-            sendToKitchen: item.sendToKitchen
-          }));
-          
-          if (hasKitchenItems) {
-            sendToKitchen(selectedTable.number, cart, true);
+          // 1. Mark ANY existing pending orders for this table as PAID in the context
+          markTableOrdersPaid(selectedTable.number);
+
+          // 2. Auto-route current cart to kitchen as "paid"
+          if (cart.length > 0) {
+            sendToKitchen(selectedTable.number, cart, customerName, true);
           }
 
+          // 2. Clear remaining items in cart by 'placing' them as a PAID order record
+          if (cart.length > 0) {
+            sendToKitchen(selectedTable.number, cart, customerName, true);
+          }
+          
+          // 3. UI and Persistent Table state updates
           onPaymentComplete(cartTotalWithTax, method, selectedTable.id);
           setCart([]);
           setShowPayment(false);
           setSelectedTable(null);
         }}
       />
+      {/* Global Customer Modal to prevent z-index issues with sidebar footer */}
+      <AnimatePresence>
+        {showCustomerModal && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-md"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+              className="w-full max-w-sm bg-white rounded-[2rem] shadow-2xl p-8 border border-slate-100"
+            >
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="text-2xl font-black text-slate-900">Customer Info</h3>
+                <button 
+                  onClick={() => setShowCustomerModal(false)} 
+                  className="p-2 hover:bg-slate-50 rounded-full text-slate-400 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="space-y-6">
+                <div className="relative group">
+                  <User className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                  <input 
+                    autoFocus
+                    type="text" 
+                    placeholder="Enter customer name..."
+                    className="w-full pl-14 pr-6 py-5 bg-slate-50 border-2 border-transparent focus:border-primary-500 focus:bg-white rounded-2xl font-bold text-xl text-slate-800 outline-none transition-all shadow-inner"
+                    value={tempName}
+                    onChange={(e) => setTempName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        setCustomerName(tempName || null);
+                        setShowCustomerModal(false);
+                      }
+                    }}
+                  />
+                </div>
+                
+                <div className="flex gap-4 pt-2">
+                  <button 
+                    onClick={() => {
+                      setCustomerName(null);
+                      setTempName('');
+                      setShowCustomerModal(false);
+                    }}
+                    className="flex-1 py-4 bg-slate-100 text-slate-500 font-bold rounded-2xl hover:bg-slate-200 transition-colors active:scale-95"
+                  >
+                    Remove
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setCustomerName(tempName || null);
+                      setShowCustomerModal(false);
+                    }}
+                    className="flex-1 py-4 bg-primary-600 text-white font-extrabold rounded-2xl hover:bg-primary-700 shadow-xl shadow-primary-600/30 transition-all active:scale-95"
+                  >
+                    Confirm
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <ToastContainer toasts={mergedToasts} />
 
       <style>{`

@@ -22,6 +22,8 @@ export default function OrderPanel({
   cartTotalWithTax,
   onSendToKitchen,
   onPay,
+  customerName,
+  onCustomerClick,
 }) {
   return (
     <>
@@ -102,6 +104,8 @@ export default function OrderPanel({
             updateQuantity={updateQuantity}
             clearCart={clearCart}
             onPay={onPay}
+            customerName={customerName}
+            onCustomerClick={onCustomerClick}
           />
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-slate-50">

@@ -25,11 +25,7 @@ export default function OrdersPage({ onPayOrder }) {
         <h1 className="text-2xl font-black tracking-tight text-text-primary md:text-3xl">
           Orders
         </h1>
-        <p className="mt-1 text-sm text-text-secondary">
-          Same numbers as the kitchen: <span className="font-semibold text-text-primary">Order #</span> and{' '}
-          <span className="font-semibold text-text-primary">Ticket #</span> match for backend sync. Mark paid when
-          the check is settled.
-        </p>
+
       </div>
 
       <div className="space-y-3">
@@ -63,7 +59,7 @@ export default function OrdersPage({ onPayOrder }) {
                     </span>
                   </p>
                   <p className="mt-1 text-base font-bold text-text-secondary">
-                    Table {o.tableNumber}
+                    Table {o.tableNumber} {o.customerName && <span className="ml-2 font-black text-primary-700">· {o.customerName}</span>}
                   </p>
                   <p className="mt-0.5 text-xs text-text-secondary">
                     {statusLabel[o.status]} · {new Date(o.createdAt).toLocaleString()}

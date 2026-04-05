@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Mail, Lock, ArrowRight } from 'lucide-react';
+import { Mail, Lock, ArrowRight, ShieldCheck, Users } from 'lucide-react';
+import { motion } from 'framer-motion';
 import AuthLayout from './AuthLayout';
 import AuthInput from './AuthInput';
 import AuthButton from './AuthButton';
 
 import API_BASE_URL from '../../config';
 
-export default function Login({ onNavigate }) {
-  const [formData, setFormData] = useState({ email: '', password: '' });
+export default function Login({ onNavigate, onLogin }) {
+  const [formData, setFormData] = useState({ email: '', password: '', role: 'staff' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -31,10 +32,13 @@ export default function Login({ onNavigate }) {
       
       // Save token and user info
       localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
       
       setLoading(false);
-      onNavigate('pos');
+      if (onLogin) {
+        onLogin(data.user);
+      } else {
+        onNavigate('dashboard');
+      }
     } catch (err) {
       setLoading(false);
       setError(err.message);
@@ -49,10 +53,38 @@ export default function Login({ onNavigate }) {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 text-sm rounded">
+        <div className="mb-6 p-3 bg-red-100 border border-red-400 text-red-700 text-sm rounded-xl">
           {error}
         </div>
       )}
+
+      {/* Role Selection Chips */}
+      <div className="mb-6">
+        <div className="flex gap-3">
+          {[
+            { id: 'staff', label: 'Staff', icon: Users },
+            { id: 'admin', label: 'Admin', icon: ShieldCheck }
+          ].map((r) => {
+            const Icon = r.icon;
+            const isSelected = formData.role === r.id;
+            return (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => setFormData({ ...formData, role: r.id })}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-2xl border-2 transition-all ${
+                  isSelected 
+                    ? 'border-primary-500 bg-primary-50/50 text-primary-700 shadow-sm' 
+                    : 'border-border bg-white text-text-secondary hover:border-slate-300'
+                }`}
+              >
+                <Icon className={`w-4 h-4 ${isSelected ? 'text-primary-600' : 'text-slate-400'}`} />
+                <span className="font-bold text-sm">{r.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <AuthInput

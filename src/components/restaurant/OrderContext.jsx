@@ -17,28 +17,23 @@ export function isKitchenProductName(name) {
   return isKitchenEligibleProduct({ name, category: undefined });
 }
 
-/**
- * Lines sent to KDS — shape matches a future API payload.
- * orderId on the ticket === POS order number (same as `id` on kitchen order).
- */
-export function kitchenLinesFromCart(cart) {
-  return cart
-    .filter((item) =>
-      isKitchenEligibleProduct({
-        name: item.name,
-        category: item.category,
-        sendToKitchen: item.sendToKitchen,
-      })
-    )
-    .map((item) => ({
+export function fullLinesFromCart(cart) {
+  return cart.map((item) => {
+    const isKitchen = isKitchenEligibleProduct({
+      name: item.name,
+      category: item.category,
+      sendToKitchen: item.sendToKitchen,
+    });
+    return {
       productId: item.id,
       name: item.name,
       qty: item.quantity,
       price: item.price,
       category: item.category?.name || item.category || null,
-      sendToKitchen: item.sendToKitchen === true,
-      prepared: false,
-    }));
+      sendToKitchen: isKitchen,
+      prepared: !isKitchen,
+    };
+  });
 }
 
 function loadPersisted() {
@@ -119,6 +114,23 @@ export function OrderProvider({ children, onExternalPayment }) {
     );
   }, [nextOrderId]);
 
+  // Cross-tab synchronization
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        try {
+          const { orders: newOrders, nextOrderId: newNextId } = JSON.parse(e.newValue);
+          setOrders(newOrders || []);
+          setNextOrderId(newNextId || 101);
+        } catch (err) {
+          console.error("Sync error:", err);
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   const pushToast = useCallback((message, type = 'success') => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setKdsToasts((prev) => [...prev, { id, message, type }]);
@@ -144,12 +156,11 @@ export function OrderProvider({ children, onExternalPayment }) {
    * @returns {boolean} true if at least one kitchen ticket was created
    */
   const sendToKitchen = useCallback(
-    async (tableNumber, cart, isPaid = false) => {
-      const lines = kitchenLinesFromCart(cart);
-      if (lines.length === 0) {
-        pushToast('Add a kitchen item (pizza, pasta, burger…) to send to KDS', 'preparing');
-        return false;
-      }
+    async (tableNumber, cart, customerName = null, isPaid = false) => {
+      const lines = fullLinesFromCart(cart);
+      if (lines.length === 0) return false;
+
+      const hasPrepItems = lines.some((l) => l.sendToKitchen);
 
       try {
         const token = localStorage.getItem('token');
@@ -161,7 +172,9 @@ export function OrderProvider({ children, onExternalPayment }) {
           body: JSON.stringify({ 
             order_type: 'pos',
             table_number: tableNumber,
-            status: 'toCook'
+            customer_name: customerName,
+            status: hasPrepItems ? 'toCook' : 'completed',
+            is_paid: isPaid ? 1 : 0
           })
         });
         
@@ -183,13 +196,13 @@ export function OrderProvider({ children, onExternalPayment }) {
            });
         }
 
-        /** `id` is the backend database ID, but we also keep orderNumber for display */
         const order = {
           id: dbOrder.id,
           orderNumber: dbOrder.order_number || nextOrderId,
           tableNumber,
+          customerName,
           items: lines,
-          status: 'toCook',
+          status: hasPrepItems ? 'toCook' : 'completed',
           createdAt: Date.now(),
           paid: isPaid,
           source: 'pos',
@@ -197,12 +210,17 @@ export function OrderProvider({ children, onExternalPayment }) {
 
         setOrders((prev) => [...prev, order]);
         setNextOrderId((n) => n + 1);
-        triggerKitchenIcon();
-        pushToast('New Order Received 🍽️', 'success');
+
+        if (hasPrepItems) {
+          triggerKitchenIcon();
+          pushToast('New Order Received 🍽️', 'success');
+        } else {
+          pushToast('Order locally completed ✅', 'success');
+        }
         return true;
       } catch (err) {
         console.error('Error syncing order to kitchen:', err);
-        pushToast('Failed to sync order to server. Check connection.', 'error');
+        pushToast('Failed to sync order to server.', 'error');
         return false;
       }
     },
@@ -251,6 +269,13 @@ export function OrderProvider({ children, onExternalPayment }) {
     [orders, pushToast, onExternalPayment]
   );
 
+  const markTableOrdersPaid = useCallback(
+    (tableNumber) => {
+      setOrders(prev => prev.map(o => o.tableNumber === tableNumber ? { ...o, paid: true } : o));
+    },
+    []
+  );
+
   const ordersByStatus = useMemo(() => {
     const buckets = { toCook: [], preparing: [], completed: [] };
     orders.forEach((o) => {
@@ -267,6 +292,7 @@ export function OrderProvider({ children, onExternalPayment }) {
       advanceOrder,
       toggleItemPrepared,
       markPaid,
+      markTableOrdersPaid,
       kitchenPulse,
       kitchenGlow,
       kdsToasts,
@@ -281,6 +307,7 @@ export function OrderProvider({ children, onExternalPayment }) {
       advanceOrder,
       toggleItemPrepared,
       markPaid,
+      markTableOrdersPaid,
       kitchenPulse,
       kitchenGlow,
       kdsToasts,

@@ -211,8 +211,12 @@ export default function PaymentScreen({ isOpen, onClose, total, cartItems, payme
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const qrJson = await qrRes.json();
-        setQrCodeData(qrJson.qr_data);
-        setPaymentState('upi_qr');
+        if (qrJson.qr_data) {
+          setQrCodeData(qrJson.qr_data);
+          setPaymentState('upi_qr');
+        } else {
+          throw new Error('Failed to generate UPI QR code');
+        }
       }
 
     } catch (err) {

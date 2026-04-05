@@ -62,11 +62,18 @@ export default function DisplayCard({
 
       <div className="relative z-10 flex flex-col gap-4">
         <div className="flex flex-wrap items-end justify-between gap-2">
-          <p
-            className={`bg-gradient-to-br bg-clip-text text-5xl font-black tabular-nums tracking-tighter text-transparent sm:text-6xl md:text-7xl ${titleColor}`}
-          >
-            #{order.id}
-          </p>
+           <div className="flex flex-col">
+             {order.customerName && (
+               <span className="text-xs font-black uppercase tracking-widest text-violet-300/80 mb-1">
+                 Customer: {order.customerName}
+               </span>
+             )}
+             <p
+               className={`bg-gradient-to-br bg-clip-text text-5xl font-black tabular-nums tracking-tighter text-transparent sm:text-6xl md:text-7xl ${titleColor}`}
+             >
+               #{order.orderNumber || order.id}
+             </p>
+           </div>
           <span className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-bold uppercase tracking-widest text-white/90 ring-1 ring-white/20">
             Table {order.tableNumber}
           </span>
