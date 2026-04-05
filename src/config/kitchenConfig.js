@@ -9,7 +9,26 @@
  */
 
 /** Category slugs from menu — entire category goes to kitchen when listed here */
-export const KITCHEN_CATEGORIES = new Set(['italian', 'pizza', 'burgers', 'pasta', 'desserts', 'snacks', 'mains']);
+export const KITCHEN_CATEGORIES = new Set([
+  'italian',
+  'pizza',
+  'pizzas',
+  'pizzasa',
+  'burger',
+  'burgers',
+  'pasta',
+  'pastas',
+  'dessert',
+  'desserts',
+  'snack',
+  'snacks',
+  'main',
+  'mains',
+  'chinese',
+  'indian',
+  'continental',
+  'maggi',
+]);
 
 /** Extra routing by product name (e.g. "Classic Burger" under continental) */
 export const KITCHEN_NAME_KEYWORDS = [
@@ -66,8 +85,9 @@ export function isKitchenEligibleProduct(product) {
   // Note: We removed the hard 'return false' here so that even if the flag is off/missing, 
   // name-based keywords can still catch items (e.g. "Pizza" in name) and route them to KDS.
   
-  // Safe category check
-  if (product.category && KITCHEN_CATEGORIES.has(String(product.category).toLowerCase())) {
+  // Safe category check - handles both string slugs and legacy object structures
+  const cat = typeof product.category === 'object' ? product.category?.name : product.category;
+  if (cat && KITCHEN_CATEGORIES.has(String(cat).toLowerCase())) {
     return true;
   }
   
