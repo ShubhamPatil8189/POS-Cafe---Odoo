@@ -82,7 +82,7 @@ export default function UnifiedPOS({
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      if (!p.available) return false;
+      if (!p.available || !p.sendToKitchen) return false;
       const matchesCat =
         activeCategory === 'all' || p.category === activeCategory;
       const matchesSearch = p.name
