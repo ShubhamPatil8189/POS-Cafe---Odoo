@@ -181,3 +181,4 @@ Go to the **Analytics & Reports** tab on the Admin dashboard to:
 1. Select date ranges and filters (terminal, cashier, payment type).
 2. Export **Excel Sales Log:** Contains sheets for sales summary, transaction logs, and payment method details.
 3. Export **PDF Sales Digest:** A beautiful layout including summary grids, top-selling items list, and visual status charts ready for printing or email distribution.
+    
