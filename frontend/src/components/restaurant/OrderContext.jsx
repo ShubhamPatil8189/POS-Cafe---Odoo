@@ -228,16 +228,45 @@ export function OrderProvider({ children, onExternalPayment }) {
   );
 
   const advanceOrder = useCallback(
-    (orderId) => {
+    async (orderId) => {
       const order = orders.find(o => o.id === orderId);
       if (!order) return;
 
+      let nextStatus = '';
       if (order.status === 'toCook') {
-        pushToast('Cooking Started 🔥', 'preparing');
-        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'preparing' } : o));
+        nextStatus = 'preparing';
       } else if (order.status === 'preparing') {
-        pushToast('Order Ready ✅', 'success');
-        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'completed', completedAt: Date.now() } : o));
+        nextStatus = 'completed';
+      }
+
+      if (!nextStatus) return;
+
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ status: nextStatus })
+        });
+
+        if (response.ok) {
+          if (nextStatus === 'preparing') {
+            pushToast('Cooking Started 🔥', 'preparing');
+            setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'preparing' } : o));
+          } else if (nextStatus === 'completed') {
+            pushToast('Order Ready ✅', 'success');
+            setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'completed', completedAt: Date.now() } : o));
+          }
+        } else {
+          const errorData = await response.json();
+          pushToast(errorData.error || 'Failed to update status on server.', 'error');
+        }
+      } catch (err) {
+        console.error('Error advancing order status:', err);
+        pushToast('Network error while advancing status.', 'error');
       }
     },
     [orders, pushToast]
