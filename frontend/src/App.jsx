@@ -217,13 +217,73 @@ export default function App() {
     setFloors(prev => prev.filter(f => f !== floorName));
   };
 
-  const handleAddTable = (floorName, numStr, seatsStr) => {
-    // This currently updates local state; in a real integrated system, this would call POST /api/tables
-    addToast('Table management is currently synced with backend. Manual additions disabled.', 'warning');
+  const handleAddTable = async (floorName, numStr, seatsStr) => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      addToast('Authentication token missing. Please log in.', 'error');
+      return;
+    }
+
+    const floor_id = floorName === 'first' ? 2 : 1;
+    const table_number = numStr;
+    const seats = parseInt(seatsStr) || 4;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/tables`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ floor_id, table_number, seats })
+      });
+
+      if (response.ok) {
+        const newTable = await response.json();
+        setTables(prev => [...prev, {
+          id: newTable.id,
+          number: newTable.table_number,
+          seats: newTable.seats,
+          floor: newTable.floor_id === 2 ? 'first' : 'ground',
+          state: 'available'
+        }]);
+        addToast(`Table ${table_number} added successfully!`, 'success');
+      } else {
+        const errorData = await response.json();
+        addToast(errorData.error || 'Failed to add table.', 'error');
+      }
+    } catch (err) {
+      console.error('Error adding table:', err);
+      addToast('Network error while adding table.', 'error');
+    }
   };
 
-  const handleDeleteTable = (tableId) => {
-    addToast('Delete table via backend/admin panel.', 'warning');
+  const handleDeleteTable = async (tableId) => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      addToast('Authentication token missing. Please log in.', 'error');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/tables/${tableId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setTables(prev => prev.filter(t => t.id !== tableId));
+        addToast('Table deleted successfully!', 'success');
+      } else {
+        const errorData = await response.json();
+        addToast(errorData.error || 'Failed to delete table.', 'error');
+      }
+    } catch (err) {
+      console.error('Error deleting table:', err);
+      addToast('Network error while deleting table.', 'error');
+    }
   };
 
   const addToast = (message, type) => {
