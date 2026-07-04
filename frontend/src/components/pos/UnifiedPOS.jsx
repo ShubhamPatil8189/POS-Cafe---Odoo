@@ -77,8 +77,8 @@ export default function UnifiedPOS({
     }
   }, [floors, activeFloor]);
 
-  // Filter tables by floor ID (ensuring type comparison works)
-  const currentTables = tables.filter((t) => Number(t.floor) === Number(activeFloor));
+  // Filter tables by floor (can be id or mapped string like 'ground')
+  const currentTables = tables.filter((t) => String(t.floor) === String(activeFloor));
 
   const resolveTable = useCallback(
     (t) => {

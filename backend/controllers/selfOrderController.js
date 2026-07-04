@@ -33,7 +33,7 @@ async function recalculateOrderTotal(orderId) {
 exports.getQRData = async (req, res) => {
   try {
     const [tables] = await pool.query('SELECT id, table_number FROM tables WHERE is_active = TRUE');
-    const baseUrl = process.env.FRONTEND_SELF_ORDER_URL || `${req.protocol}://${req.get('host').replace('5000', '5173')}/self-order`;
+    const baseUrl = process.env.FRONTEND_SELF_ORDER_URL || `${req.protocol}://${req.get('host').replace(/:\d+/, ':5173')}/self-order`;
 
     const qrData = tables.map(t => ({
       table_id: t.id,
@@ -53,7 +53,7 @@ exports.getQRData = async (req, res) => {
 exports.getQRImage = async (req, res) => {
   try {
     const { tableId } = req.params;
-    const baseUrl = process.env.FRONTEND_SELF_ORDER_URL || `${req.protocol}://${req.get('host').replace('5000', '5173')}/self-order`;
+    const baseUrl = process.env.FRONTEND_SELF_ORDER_URL || `${req.protocol}://${req.get('host').replace(/:\d+/, ':5173')}/self-order`;
     const url = `${baseUrl}?tableId=${tableId}`;
 
     const qrBuffer = await QRCode.toBuffer(url, {
@@ -104,7 +104,7 @@ exports.placeOrder = async (req, res) => {
     // 2. Create Order
     const [orderResult] = await connection.query(
       `INSERT INTO orders (order_number, table_id, status, source, checkout_type, is_paid)
-       VALUES (?, ?, 'confirmed', 'self-order', ?, ?)`,
+       VALUES (?, ?, 'draft', 'self-order', ?, ?)`,
       [orderNumber, table_id, checkout_type, checkout_type === 'advance']
     );
     const orderId = orderResult.insertId;
