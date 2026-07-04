@@ -34,20 +34,27 @@ pos-cafe-odoo/
 │   ├── seed.js              # Database structure and basic seed data
 │   ├── seed_analytics.js    # Dummy historical sales data generator
 │   └── index.js             # Server entry point (HTTP + WebSockets)
-├── public/                  # Static assets for the React app
-├── src/
-│   ├── assets/              # Shared styles, icons, and logo assets
-│   ├── components/
-│   │   ├── auth/            # Auth screens (Login, Signup)
-│   │   ├── pos/             # POS layouts, floors, dashboards, and sessions
-│   │   ├── restaurant/      # Analytics charts, reports
-│   │   ├── self_order/      # Self-ordering catalog and order flow
-│   │   └── ui/              # Reusable design system component library (shadcn style)
-│   ├── context/             # Global states (Auth, Catalog, Order contexts)
-│   ├── index.css            # Base Tailwind v4 configuration and HSL color variables
-│   ├── App.jsx              # Main routing and dashboard coordinator
-│   └── main.jsx             # React entry point
-└── package.json             # Root-level Vite config and dependencies
+├── frontend/
+│   ├── public/              # Static assets for the React app
+│   ├── src/
+│   │   ├── assets/          # Shared styles, icons, and logo assets
+│   │   ├── components/
+│   │   │   ├── auth/        # Auth screens (Login, Signup)
+│   │   │   ├── pos/         # POS layouts, floors, dashboards, and sessions
+│   │   │   ├── restaurant/  # Analytics charts, reports
+│   │   │   ├── self_order/  # Self-ordering catalog and order flow
+│   │   │   └── ui/          # Reusable design system component library (shadcn style)
+│   │   ├── context/         # Global states (Auth, Catalog, Order contexts)
+│   │   ├── index.css        # Base Tailwind v4 configuration and HSL color variables
+│   │   ├── App.jsx          # Main routing and dashboard coordinator
+│   │   ├── Root.jsx         # App router wrapper
+│   │   └── main.jsx         # React entry point
+│   ├── package.json         # Frontend dependencies and scripts
+│   ├── vite.config.js       # Vite configuration
+│   ├── eslint.config.js     # ESLint configuration
+│   └── index.html           # HTML entry point template
+├── README.md                # This documentation file
+└── .gitignore               # Root git ignore rules
 ```
 
 ### Module Breakdown
@@ -118,10 +125,10 @@ npm run dev
 The server will boot up and start listening on `http://localhost:5001`.
 
 ### 4. Start the Frontend Application
-Navigate back to the project root, install frontend packages, and spin up the Vite development server:
+Navigate to the `frontend` directory, install frontend packages, and spin up the Vite development server:
 
 ```bash
-cd ..
+cd ../frontend
 npm install
 npm run dev
 ```
