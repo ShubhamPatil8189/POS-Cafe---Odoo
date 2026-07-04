@@ -33,3 +33,52 @@ Thumbs.db
 
 # TypeScript (if using)
 *.tsbuildinfo
+
+# Module Specifications
+MODULE_A_PERSON_1.md
+MODULE_B_PERSON_2.md
+MODULE_C_PERSON_3.md
+MODULE_D_PERSON_4.md
+
+# Frontend Node modules and build output
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Backend Test scripts and Debug Dumps
+backend/check_db_ids.js
+backend/check_floors.js
+backend/check_tables.js
+backend/diag_dump.js
+backend/force_seed.js
+backend/integration_test.js
+backend/test_db.js
+backend/test_order_flow.js
+backend/tmp-check-tables.js
+backend/tmp-schema.js
+backend/tmp-test-additem.js
+backend/tmp-test-cols.js
+backend/tmp-test-db.js
+backend/tmp-test-endpoint.js
+backend/tmp-test-endpoint2.js
+backend/tmp-test-http.js
+backend/tmp-test-rzp.js
+backend/tmp-test-schema.js
+backend/tmp-test-schema2.js
+backend/schema.txt
+backend/schema_out.txt
+backend/tables_dump_error.txt
+backend/api_output.txt
+backend/db_output.txt
+backend/test_qr.txt
+backend/reseed_fix.sql
+backend/error.log
+backend/all_floors.json
+backend/debug_tables.json
+backend/floor1_tables.json
+backend/floors_api_output.json
+backend/order_lines_cols_debug.json
+backend/orders_cols_debug.json
+backend/sample_table.json
+backend/tmp-products.json
+backend/seed_products_40.js

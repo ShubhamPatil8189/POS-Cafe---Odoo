@@ -143,6 +143,8 @@ async function seed() {
         last_activity DATETIME,
         position_x INT DEFAULT 0,
         position_y INT DEFAULT 0,
+        self_order_token VARCHAR(255),
+        self_order_expiry DATETIME,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (floor_id) REFERENCES floors(id) ON DELETE SET NULL
@@ -186,6 +188,8 @@ async function seed() {
         user_id INT,
         status ENUM('draft', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled') DEFAULT 'draft',
         source ENUM('pos', 'self-order', 'online') DEFAULT 'pos',
+        checkout_type ENUM('advance', 'kitchen') DEFAULT 'kitchen',
+        is_paid BOOLEAN DEFAULT FALSE,
         subtotal DECIMAL(10, 2) DEFAULT 0.00,
         tax_total DECIMAL(10, 2) DEFAULT 0.00,
         total DECIMAL(10, 2) DEFAULT 0.00,
