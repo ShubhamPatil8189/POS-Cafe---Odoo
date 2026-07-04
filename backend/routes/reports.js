@@ -21,10 +21,10 @@ router.get('/dashboard', adminOnly, reportController.getDashboard);
 router.get('/sales', adminOnly, reportController.getSales);
 
 // GET /api/reports/staff  (admin only) — list all users for filter dropdown
-// router.get('/staff', adminOnly, reportController.getStaff);
+router.get('/staff', adminOnly, reportController.getStaff);
 
 // GET /api/reports/sessions  (admin only) — list sessions for filter dropdown
-// router.get('/sessions', adminOnly, reportController.getSessions);
+router.get('/sessions', adminOnly, reportController.getSessions);
 
 // GET /api/reports/export/pdf  (admin only)
 router.get('/export/pdf', adminOnly, reportController.exportPDF);
