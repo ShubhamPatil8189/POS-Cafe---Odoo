@@ -96,6 +96,16 @@ const initDB = async () => {
       groundFloorId = existingGround[0].id;
     }
 
+    const [existingFirst] = await connection.query("SELECT id FROM floors WHERE name = 'First Floor' OR id = 2");
+    let firstFloorId;
+    if (existingFirst.length === 0) {
+      await connection.query("INSERT INTO floors (id, name) VALUES (2, 'First Floor')");
+      firstFloorId = 2;
+      console.log('🌱 Seeded: First Floor (ID = 2)');
+    } else {
+      firstFloorId = existingFirst[0].id;
+    }
+
     // Seed Data: Tables for Ground Floor
     console.log("🌱 Checking Ground Floor tables (T1-T6)...");
     for (let i = 1; i <= 6; i++) {

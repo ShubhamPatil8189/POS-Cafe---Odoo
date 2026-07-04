@@ -287,18 +287,19 @@ async function seed() {
     // Floors & Tables
     const [existingFloors] = await connection.query('SELECT id FROM floors LIMIT 1');
     if (existingFloors.length === 0) {
-      const [res] = await connection.query("INSERT INTO floors (name, sequence) VALUES ('Ground Floor', 1)");
-      const floorId = res.insertId;
+      await connection.query("INSERT INTO floors (id, name, sequence) VALUES (1, 'Ground Floor', 1)");
+      await connection.query("INSERT INTO floors (id, name, sequence) VALUES (2, 'First Floor', 2)");
+      
       await connection.query(`
         INSERT INTO tables (floor_id, table_number, seats, status) VALUES
-        (?, 'T1', 4, 'available'),
-        (?, 'T2', 2, 'available'),
-        (?, 'T3', 6, 'available'),
-        (?, 'T4', 4, 'available'),
-        (?, 'T5', 8, 'available'),
-        (?, 'T6', 2, 'available')
-      `, [floorId, floorId, floorId, floorId, floorId, floorId]);
-      console.log('  ✅ Floor + Tables inserted');
+        (1, 'T1', 4, 'available'),
+        (1, 'T2', 2, 'available'),
+        (1, 'T3', 6, 'available'),
+        (1, 'T4', 4, 'available'),
+        (1, 'T5', 8, 'available'),
+        (1, 'T6', 2, 'available')
+      `);
+      console.log('  ✅ Floors + Tables inserted');
     }
 
     console.log('\n🎉 Seed completed!');
