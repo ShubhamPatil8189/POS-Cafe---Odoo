@@ -30,6 +30,7 @@ export default function UnifiedPOS({
   onOrderSent,
   onPaymentComplete,
   onLogout,
+  onClearTable,
 }) {
   const { orders, sendToKitchen, markTableOrdersPaid, kdsToasts } = useOrders();
   const [products, setProducts] = useState([]);
@@ -160,7 +161,7 @@ export default function UnifiedPOS({
 
    const handlePlaceOrder = () => {
     if (cart.length === 0 || !selectedTable) return;
-    const ok = sendToKitchen(selectedTable.number, cart, customerName);
+    const ok = sendToKitchen(selectedTable.id, selectedTable.number, cart, customerName, false, 'cash', session?.id);
     if (!ok) return;
     onOrderSent(selectedTable.id, cart);
     const nextCart = cart.filter(
@@ -319,6 +320,7 @@ export default function UnifiedPOS({
                 sessionSalesTotal={sessionSalesTotal}
                 resolveTable={resolveTable}
                 isCollapsed={!!selectedTable}
+                onClearTable={onClearTable}
               />
             </motion.div>
 
@@ -412,14 +414,15 @@ export default function UnifiedPOS({
         orderId={activeOrderToPay?.id}
         cartItems={activeOrderToPay ? activeOrderToPay.items : cart}
         total={activeOrderToPay 
-          ? activeOrderToPay.items.reduce((acc, item) => acc + (item.price || 0) * item.qty, 0) 
+          ? activeOrderToPay.total
           : cartTotalWithTax
         }
         onPaymentSuccess={(method) => {
           if (activeOrderToPay) {
-            const total = activeOrderToPay.items.reduce((acc, item) => acc + (item.price || 0) * item.qty, 0);
-            markPaid(activeOrderToPay.id);
-            onPaymentComplete(total, method, activeOrderToPay.tableId || 1); // Mock tableId if missing
+            const total = activeOrderToPay.total;
+            markPaid(activeOrderToPay.id, method, session?.id);
+            const keepOccupied = activeOrderToPay.status !== 'completed';
+            onPaymentComplete(total, method, activeOrderToPay.tableId || 1, keepOccupied); // Mock tableId if missing
             setActiveOrderToPay(null);
             setShowPayment(false);
             return;
@@ -428,20 +431,15 @@ export default function UnifiedPOS({
           if (!selectedTable) return;
           
           // 1. Mark ANY existing pending orders for this table as PAID in the context
-          markTableOrdersPaid(selectedTable.number);
+          markTableOrdersPaid(selectedTable.number, method, session?.id);
 
           // 2. Auto-route current cart to kitchen as "paid"
           if (cart.length > 0) {
-            sendToKitchen(selectedTable.number, cart, customerName, true);
-          }
-
-          // 2. Clear remaining items in cart by 'placing' them as a PAID order record
-          if (cart.length > 0) {
-            sendToKitchen(selectedTable.number, cart, customerName, true);
+            sendToKitchen(selectedTable.id, selectedTable.number, cart, customerName, true, method, session?.id);
           }
           
           // 3. UI and Persistent Table state updates
-          onPaymentComplete(cartTotalWithTax, method, selectedTable.id);
+          onPaymentComplete(cartTotalWithTax, method, selectedTable.id, true);
           setCart([]);
           setShowPayment(false);
           setSelectedTable(null);

@@ -4,8 +4,8 @@
  * Run: node backend/seed_analytics.js
  */
 
-const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
+const prisma = require('./config/database');
 require('dotenv').config();
 
 const PRODUCTS = [
@@ -27,42 +27,32 @@ const daysAgo = (n, h = 12) => {
   const d = new Date();
   d.setDate(d.getDate() - n);
   d.setHours(h, rand(0, 59), 0, 0);
-  return d.toISOString().slice(0, 19).replace('T', ' ');
+  return d;
 };
 
 async function run() {
-  const connCfg = {
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: parseInt(process.env.DB_PORT || '4000'),
-    ssl: { rejectUnauthorized: false }
-  };
-
-  const conn = await mysql.createConnection(connCfg);
-  console.log('✅ Connected to TiDB Cloud\n');
+  console.log('✅ Connected via Prisma\n');
 
   try {
     // ── 1. Ensure payment methods ──────────────────────────
     console.log('💳 Ensuring payment methods...');
-    const [pmRows] = await conn.query('SELECT id, type FROM payment_methods');
+    const pmRows = await prisma.paymentMethod.findMany({ select: { id: true, type: true } });
     const pmMap = {};
     pmRows.forEach(r => pmMap[r.type] = r.id);
 
     if (!pmMap['cash']) {
-      const [r] = await conn.query("INSERT INTO payment_methods (name, type) VALUES ('Cash', 'cash')");
-      pmMap['cash'] = r.insertId;
+      const r = await prisma.paymentMethod.create({ data: { name: 'Cash', type: 'cash' } });
+      pmMap['cash'] = r.id;
       console.log('  ✅ Created cash payment method');
     }
     if (!pmMap['digital']) {
-      const [r] = await conn.query("INSERT INTO payment_methods (name, type) VALUES ('Card / Digital', 'digital')");
-      pmMap['digital'] = r.insertId;
+      const r = await prisma.paymentMethod.create({ data: { name: 'Card / Digital', type: 'digital' } });
+      pmMap['digital'] = r.id;
       console.log('  ✅ Created digital payment method');
     }
     if (!pmMap['upi']) {
-      const [r] = await conn.query("INSERT INTO payment_methods (name, type) VALUES ('UPI', 'upi')");
-      pmMap['upi'] = r.insertId;
+      const r = await prisma.paymentMethod.create({ data: { name: 'UPI', type: 'upi' } });
+      pmMap['upi'] = r.id;
       console.log('  ✅ Created UPI payment method');
     }
     console.log('  Payment method IDs:', pmMap, '\n');
@@ -72,14 +62,13 @@ async function run() {
     const hash = await bcrypt.hash('staff123', 10);
 
     const ensureUser = async (name, email, role) => {
-      const [rows] = await conn.query('SELECT id FROM users WHERE email = ?', [email]);
-      if (rows.length > 0) { console.log(`  ↩ ${email} already exists (id=${rows[0].id})`); return rows[0].id; }
-      const [res] = await conn.query(
-        'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
-        [name, email, hash, role]
-      );
-      console.log(`  ✅ Created ${role} ${email} (id=${res.insertId})`);
-      return res.insertId;
+      const existing = await prisma.user.findUnique({ where: { email } });
+      if (existing) { console.log(`  ↩ ${email} already exists (id=${existing.id})`); return existing.id; }
+      const res = await prisma.user.create({
+        data: { name, email, password: hash, role }
+      });
+      console.log(`  ✅ Created ${role} ${email} (id=${res.id})`);
+      return res.id;
     };
 
     const adminId = await ensureUser('Admin User',  'admin@cafe.com',  'admin');
@@ -91,19 +80,18 @@ async function run() {
     // ── 3. Resolve product IDs ─────────────────────────────
     console.log('📦 Resolving product IDs...');
     for (const p of PRODUCTS) {
-      const [rows] = await conn.query('SELECT id FROM products WHERE name = ? LIMIT 1', [p.name]);
-      if (rows.length > 0) {
-        p.id = rows[0].id;
+      const existing = await prisma.product.findFirst({ where: { name: p.name } });
+      if (existing) {
+        p.id = existing.id;
         console.log(`  ✅ "${p.name}" → id ${p.id}`);
       } else {
         // Insert a minimal product row so it exists
-        const [catRows] = await conn.query('SELECT id FROM categories LIMIT 1');
-        const catId = catRows.length > 0 ? catRows[0].id : null;
-        const [res] = await conn.query(
-          'INSERT INTO products (name, price, category_id, send_to_kitchen) VALUES (?, ?, ?, TRUE)',
-          [p.name, p.price, catId]
-        );
-        p.id = res.insertId;
+        const cat = await prisma.category.findFirst();
+        const catId = cat ? cat.id : null;
+        const res = await prisma.product.create({
+          data: { name: p.name, price: p.price, category_id: catId, send_to_kitchen: true }
+        });
+        p.id = res.id;
         console.log(`  ✅ Inserted "${p.name}" → id ${p.id}`);
       }
     }
@@ -114,25 +102,22 @@ async function run() {
     const sessionIds = [];
     for (let day = 6; day >= 0; day--) {
       // Morning session
-      const [s1] = await conn.query(
-        'INSERT INTO sessions (user_id, status, opening_balance, start_time, end_time) VALUES (?, ?, ?, ?, ?)',
-        [pick(userIds), 'closed', 500, daysAgo(day, 9), daysAgo(day, 14)]
-      );
-      sessionIds.push(s1.insertId);
+      const s1 = await prisma.session.create({
+        data: { user_id: pick(userIds), status: 'closed', opening_balance: 500, start_time: daysAgo(day, 9), end_time: daysAgo(day, 14) }
+      });
+      sessionIds.push(s1.id);
 
       // Evening session
-      const [s2] = await conn.query(
-        'INSERT INTO sessions (user_id, status, opening_balance, start_time, end_time) VALUES (?, ?, ?, ?, ?)',
-        [pick(userIds), 'closed', 500, daysAgo(day, 16), daysAgo(day, 22)]
-      );
-      sessionIds.push(s2.insertId);
+      const s2 = await prisma.session.create({
+        data: { user_id: pick(userIds), status: 'closed', opening_balance: 500, start_time: daysAgo(day, 16), end_time: daysAgo(day, 22) }
+      });
+      sessionIds.push(s2.id);
     }
     // One open session for today
-    const [sOpen] = await conn.query(
-      'INSERT INTO sessions (user_id, status, opening_balance, start_time) VALUES (?, ?, ?, NOW())',
-      [adminId, 'open', 1000]
-    );
-    sessionIds.push(sOpen.insertId);
+    const sOpen = await prisma.session.create({
+      data: { user_id: adminId, status: 'open', opening_balance: 1000, start_time: new Date() }
+    });
+    sessionIds.push(sOpen.id);
     console.log(`  ✅ Created ${sessionIds.length} sessions\n`);
 
     // ── 5. Seed orders + lines + payments ─────────────────
@@ -167,30 +152,30 @@ async function run() {
         const total = parseFloat((subtotal + taxTotal).toFixed(2));
 
         // Insert order
-        const [orderRes] = await conn.query(
-          `INSERT INTO orders (order_number, session_id, user_id, status, subtotal, tax_total, total, created_at, updated_at)
-           VALUES (?, ?, ?, 'completed', ?, ?, ?, ?, ?)`,
-          [orderNumber, sessionId, userId, subtotal, taxTotal, total, createdAt, createdAt]
-        );
-        const orderId = orderRes.insertId;
+        const orderRes = await prisma.order.create({
+          data: {
+            order_number: orderNumber, session_id: sessionId, user_id: userId, status: 'completed',
+            subtotal, tax_total: taxTotal, total, created_at: createdAt, updated_at: createdAt
+          }
+        });
+        const orderId = orderRes.id;
 
         // Insert order lines
         for (const { prod, qty, lineTotal } of lines) {
-          await conn.query(
-            `INSERT INTO order_lines (order_id, product_id, product_name, quantity, unit_price, tax, subtotal, kitchen_status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'ready')`,
-            [orderId, prod.id, prod.name, qty, prod.price, 5.00, lineTotal]
-          );
+          await prisma.orderLine.create({
+            data: {
+              order_id: orderId, product_id: prod.id, product_name: prod.name, quantity: qty,
+              unit_price: prod.price, tax: 5.00, subtotal: lineTotal, kitchen_status: 'ready'
+            }
+          });
         }
 
         // Insert payment
         const payType = pick(payTypes);
         const methodId = pmMap[payType];
-        await conn.query(
-          `INSERT INTO payments (order_id, method_id, amount, status, created_at)
-           VALUES (?, ?, ?, 'completed', ?)`,
-          [orderId, methodId, total, createdAt]
-        );
+        await prisma.payment.create({
+          data: { order_id: orderId, method_id: methodId, amount: total, status: 'completed', created_at: createdAt }
+        });
 
         orderCount++;
         // small delay to avoid duplicate order_number
@@ -200,7 +185,7 @@ async function run() {
 
     // Also seed ~3 orders TODAY with today's timestamp
     for (let o = 0; o < 3; o++) {
-      const orderNumber = `ORD-TODAY-${rand(1000, 9999)}`;
+      const orderNumber = `ORD-TODAY-${Date.now()}-${rand(1000, 9999)}`;
       const userId = pick(userIds);
       const prod1 = pick(PRODUCTS);
       const prod2 = pick(PRODUCTS);
@@ -208,26 +193,27 @@ async function run() {
       const taxTotal = parseFloat((subtotal * 0.05).toFixed(2));
       const total    = parseFloat((subtotal + taxTotal).toFixed(2));
 
-      const [orderRes] = await conn.query(
-        `INSERT INTO orders (order_number, session_id, user_id, status, subtotal, tax_total, total)
-         VALUES (?, ?, ?, 'completed', ?, ?, ?)`,
-        [orderNumber, sOpen.insertId, userId, subtotal, taxTotal, total]
-      );
-      const orderId = orderRes.insertId;
+      const orderRes = await prisma.order.create({
+        data: {
+          order_number: orderNumber, session_id: sOpen.id, user_id: userId, status: 'completed',
+          subtotal, tax_total: taxTotal, total
+        }
+      });
+      const orderId = orderRes.id;
 
       for (const prod of [prod1, prod2]) {
-        await conn.query(
-          `INSERT INTO order_lines (order_id, product_id, product_name, quantity, unit_price, tax, subtotal, kitchen_status)
-           VALUES (?, ?, ?, 1, ?, 5.00, ?, 'ready')`,
-          [orderId, prod.id, prod.name, prod.price, prod.price]
-        );
+        await prisma.orderLine.create({
+          data: {
+            order_id: orderId, product_id: prod.id, product_name: prod.name, quantity: 1,
+            unit_price: prod.price, tax: 5.00, subtotal: prod.price, kitchen_status: 'ready'
+          }
+        });
       }
 
       const payType = pick(payTypes);
-      await conn.query(
-        `INSERT INTO payments (order_id, method_id, amount, status) VALUES (?, ?, ?, 'completed')`,
-        [orderId, pmMap[payType], total]
-      );
+      await prisma.payment.create({
+        data: { order_id: orderId, method_id: pmMap[payType], amount: total, status: 'completed' }
+      });
       orderCount++;
       await new Promise(r => setTimeout(r, 2));
     }
@@ -235,12 +221,15 @@ async function run() {
     console.log(`  ✅ Created ${orderCount} orders with lines & payments\n`);
 
     // ── Summary ───────────────────────────────────────────
-    const [[{ cnt }]] = await conn.query("SELECT COUNT(*) as cnt FROM orders WHERE status='completed'");
-    const [[{ rev }]] = await conn.query("SELECT SUM(total) as rev FROM orders WHERE status='completed'");
+    const stats = await prisma.order.aggregate({
+      _count: { id: true },
+      _sum: { total: true },
+      where: { status: 'completed' }
+    });
     console.log('═══════════════════════════════════════');
     console.log('🎉 Analytics seed complete!');
-    console.log(`   Total completed orders : ${cnt}`);
-    console.log(`   Total revenue          : ₹${parseFloat(rev || 0).toFixed(2)}`);
+    console.log(`   Total completed orders : ${stats._count.id}`);
+    console.log(`   Total revenue          : ₹${stats._sum.total ? parseFloat(stats._sum.total).toFixed(2) : 0}`);
     console.log('═══════════════════════════════════════');
     console.log('\nNow go to Analytics → it should show live data ✅');
 
@@ -248,7 +237,7 @@ async function run() {
     console.error('❌ Error:', err.message);
     console.error(err);
   } finally {
-    await conn.end();
+    await prisma.$disconnect();
   }
 }
 

@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const prisma = require('../config/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -13,8 +13,11 @@ exports.signup = async (req, res) => {
     }
 
     // Check if user already exists
-    const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
-    if (existing.length > 0) {
+    const existing = await prisma.user.findUnique({
+      where: { email }
+    });
+    
+    if (existing) {
       return res.status(409).json({ error: 'Email already registered.' });
     }
 
@@ -28,14 +31,19 @@ exports.signup = async (req, res) => {
     }
 
     // Insert user
-    const [result] = await pool.query(
-      'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
-      [name, email, hashedPassword, role || 'staff']
-    );
+    const userRole = role === 'admin' ? 'admin' : 'staff';
+    const result = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        role: userRole
+      }
+    });
 
     // Generate JWT
     const token = jwt.sign(
-      { id: result.insertId, email, role: role || 'staff' },
+      { id: result.id, email, role: userRole },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -43,10 +51,10 @@ exports.signup = async (req, res) => {
     res.status(201).json({
       token,
       user: {
-        id: result.insertId,
+        id: result.id,
         name,
         email,
-        role: role || 'staff'
+        role: userRole
       }
     });
   } catch (error) {
@@ -65,12 +73,13 @@ exports.login = async (req, res) => {
     }
 
     // Find user
-    const [users] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
-    if (users.length === 0) {
+    const user = await prisma.user.findUnique({
+      where: { email }
+    });
+    
+    if (!user) {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
-
-    const user = users[0];
 
     // Compare password
     const isMatch = await bcrypt.compare(password, user.password);
@@ -103,16 +112,16 @@ exports.login = async (req, res) => {
 // ── Get Current User ───────────────────────────────────
 exports.getMe = async (req, res) => {
   try {
-    const [users] = await pool.query(
-      'SELECT id, name, email, role FROM users WHERE id = ?',
-      [req.user.id]
-    );
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { id: true, name: true, email: true, role: true }
+    });
 
-    if (users.length === 0) {
+    if (!user) {
       return res.status(404).json({ error: 'User not found.' });
     }
 
-    res.json({ user: users[0] });
+    res.json({ user });
   } catch (error) {
     console.error('GetMe error:', error);
     res.status(500).json({ error: 'Server error.' });

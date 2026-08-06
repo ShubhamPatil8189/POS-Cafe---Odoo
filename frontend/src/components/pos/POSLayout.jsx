@@ -53,7 +53,11 @@ export default function POSLayout({ onNavigate, onCheckoutSuccess }) {
   }, []);
 
   const cartTotal = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  const cartTotalWithTax = cartTotal * 1.05; // 5% tax
+  const cartTax = cart.reduce((acc, item) => {
+    const taxRate = parseFloat(item.tax) || 0;
+    return acc + (item.price * item.quantity * (taxRate / 100));
+  }, 0);
+  const cartTotalWithTax = cartTotal + cartTax;
 
   const filteredProducts = products.filter(p => {
     const cat = p.category_name || '';

@@ -1,17 +1,20 @@
-const pool = require('../config/database');
+const prisma = require('../config/database');
 const crypto = require('crypto');
 const QRCode = require('qrcode');
 
 // Internal utility to recalculate order total (replicated from orderController for decoupling)
-async function recalculateOrderTotal(orderId) {
-  const [items] = await pool.query('SELECT subtotal, tax FROM order_lines WHERE order_id = ?', [orderId]);
+async function recalculateOrderTotal(orderId, tx = prisma) {
+  const items = await tx.orderLine.findMany({
+    where: { order_id: parseInt(orderId) },
+    select: { subtotal: true, tax: true }
+  });
 
   let subtotal = 0;
   let taxTotal = 0;
 
   items.forEach(item => {
-    subtotal += parseFloat(item.subtotal);
-    taxTotal += parseFloat(item.tax);
+    subtotal += parseFloat(item.subtotal || 0);
+    taxTotal += parseFloat(item.tax || 0);
   });
 
   for (let i = 0; i < items.length; i++) {
@@ -21,10 +24,14 @@ async function recalculateOrderTotal(orderId) {
 
   const total = subtotal + taxTotal;
 
-  await pool.query(
-    'UPDATE orders SET subtotal = ?, tax_total = ?, total = ? WHERE id = ?',
-    [subtotal.toFixed(2), taxTotal.toFixed(2), total.toFixed(2), orderId]
-  );
+  await tx.order.update({
+    where: { id: parseInt(orderId) },
+    data: {
+      subtotal: subtotal.toFixed(2),
+      tax_total: taxTotal.toFixed(2),
+      total: total.toFixed(2)
+    }
+  });
 
   return { subtotal, taxTotal, total };
 }
@@ -32,7 +39,11 @@ async function recalculateOrderTotal(orderId) {
 // ── GET /api/self-order/qr-codes ────────────────────────
 exports.getQRData = async (req, res) => {
   try {
-    const [tables] = await pool.query('SELECT id, table_number FROM tables WHERE is_active = TRUE');
+    const tables = await prisma.table.findMany({
+      where: { is_active: true },
+      select: { id: true, table_number: true }
+    });
+    
     const baseUrl = process.env.FRONTEND_SELF_ORDER_URL || `${req.protocol}://${req.get('host').replace(/:\d+/, ':5173')}/self-order`;
 
     const qrData = tables.map(t => ({
@@ -74,10 +85,7 @@ exports.getQRImage = async (req, res) => {
 
 // ── POST /api/self-order/place-order ────────────────────
 exports.placeOrder = async (req, res) => {
-  const connection = await pool.getConnection();
   try {
-    await connection.beginTransaction();
-
     const { table_id: raw_table_id, items, checkout_type } = req.body; // checkout_type: 'advance' or 'kitchen'
     const table_id = parseInt(raw_table_id);
 
@@ -89,86 +97,108 @@ exports.placeOrder = async (req, res) => {
       return res.status(400).json({ error: 'Invalid checkout type.' });
     }
 
-    // 0. Verify Table Existence
-    const [tableCheck] = await connection.query('SELECT id FROM tables WHERE id = ?', [table_id]);
-    if (tableCheck.length === 0) {
-      await connection.rollback();
-      return res.status(404).json({ error: `Table ID ${table_id} does not exist. Please scan the latest QR code.` });
-    }
+    const result = await prisma.$transaction(async (tx) => {
+      // 0. Verify Table Existence
+      const tableCheck = await tx.table.findUnique({
+        where: { id: table_id },
+        select: { id: true }
+      });
+      
+      if (!tableCheck) {
+        throw new Error(`[NotFound] 404:Table ID ${table_id} does not exist. Please scan the latest QR code.`);
+      }
 
-    // 1. Generate Order Number
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const randomHex = crypto.randomBytes(2).toString('hex').toUpperCase();
-    const orderNumber = `SELF-${dateStr}-${randomHex}`;
+      // 1. Generate Order Number
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const randomHex = crypto.randomBytes(2).toString('hex').toUpperCase();
+      const orderNumber = `SELF-${dateStr}-${randomHex}`;
 
-    // 2. Create Order
-    const [orderResult] = await connection.query(
-      `INSERT INTO orders (order_number, table_id, status, source, checkout_type, is_paid)
-       VALUES (?, ?, 'draft', 'self-order', ?, ?)`,
-      [orderNumber, table_id, checkout_type, checkout_type === 'advance']
-    );
-    const orderId = orderResult.insertId;
+      // 2. Create Order
+      const order = await tx.order.create({
+        data: {
+          order_number: orderNumber,
+          table_id: table_id,
+          status: 'draft',
+          source: 'self_order',
+          checkout_type: checkout_type,
+          is_paid: checkout_type === 'advance'
+        }
+      });
 
-    // 3. Insert Order Lines
-    for (const item of items) {
-      const { product_id, name, quantity, price, tax_rate, notes } = item;
-      const qty = quantity || 1;
-      const itemSubtotal = parseFloat(price) * qty;
-      const itemTax = itemSubtotal * ((parseFloat(tax_rate) || 0) / 100);
+      // 3. Insert Order Lines
+      const orderLinesData = items.map(item => {
+        const qty = item.quantity ? parseFloat(item.quantity) : 1;
+        const itemSubtotal = parseFloat(item.price) * qty;
+        const itemTax = itemSubtotal * ((parseFloat(item.tax_rate) || 0) / 100);
+        
+        return {
+          order_id: order.id,
+          product_id: parseInt(item.product_id),
+          product_name: item.name,
+          quantity: qty,
+          unit_price: parseFloat(item.price).toFixed(2),
+          tax: itemTax.toFixed(2),
+          subtotal: itemSubtotal.toFixed(2),
+          notes: item.notes || null,
+          kitchen_status: 'pending'
+        };
+      });
 
-      await connection.query(
-        `INSERT INTO order_lines (order_id, product_id, product_name, quantity, unit_price, tax, subtotal, notes, kitchen_status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
-        [orderId, product_id, name, qty, price, itemTax.toFixed(2), itemSubtotal.toFixed(2), notes || null]
-      );
-    }
+      await tx.orderLine.createMany({
+        data: orderLinesData
+      });
 
-    // 4. Update Table Status
-    if (checkout_type === 'advance') {
-      // Pay in Advance: Mark occupied with 5-minute timer (USER REQUESTED 5 MIN)
-      const expiryDate = new Date(Date.now() + 5 * 60 * 1000); // 5 mins from now
-      await connection.query(
-        `UPDATE tables SET status = 'occupied', self_order_expiry = ? WHERE id = ?`,
-        [expiryDate, table_id]
-      );
-    } else {
-      // Send to Kitchen: Mark occupied, no timer
-      await connection.query(
-        `UPDATE tables SET status = 'occupied', self_order_expiry = NULL WHERE id = ?`,
-        [table_id]
-      );
-    }
+      // 4. Update Table Status
+      if (checkout_type === 'advance') {
+        // Pay in Advance: Mark occupied with 5-minute timer (USER REQUESTED 5 MIN)
+        const expiryDate = new Date(Date.now() + 5 * 60 * 1000); // 5 mins from now
+        await tx.table.update({
+          where: { id: table_id },
+          data: { status: 'occupied', self_order_expiry: expiryDate }
+        });
+      } else {
+        // Send to Kitchen: Mark occupied, no timer
+        await tx.table.update({
+          where: { id: table_id },
+          data: { status: 'occupied', self_order_expiry: null }
+        });
+      }
 
-    await connection.commit();
-
-    // 5. Finalize totals (async)
-    await recalculateOrderTotal(orderId);
+      // 5. Finalize totals (async)
+      await recalculateOrderTotal(order.id, tx);
+      
+      return { order_id: order.id, order_number: orderNumber };
+    });
 
     // 6. Notify Kitchen via Socket.IO
     const io = req.app.get('io');
     if (io) {
-      const [orderLines] = await pool.query('SELECT * FROM order_lines WHERE order_id = ?', [orderId]);
+      const orderLines = await prisma.orderLine.findMany({
+        where: { order_id: result.order_id }
+      });
+      
       io.emit('kitchen:new-order', {
-        orderId,
-        orderNumber,
+        orderId: result.order_id,
+        orderNumber: result.order_number,
         tableId: table_id,
-        source: 'self-order',
+        source: 'self_order',
         items: orderLines
       });
     }
 
     res.status(201).json({
       message: 'Order placed successfully.',
-      order_id: orderId,
-      order_number: orderNumber,
+      order_id: result.order_id,
+      order_number: result.order_number,
       checkout_type
     });
 
   } catch (error) {
-    await connection.rollback();
+    if (error.message.startsWith('[NotFound]')) {
+      const parts = error.message.replace('[NotFound] ', '').split(':');
+      return res.status(parseInt(parts[0])).json({ error: parts.slice(1).join(':') });
+    }
     console.error('Place self-order error:', error);
     res.status(500).json({ error: 'Failed to place self-order.' });
-  } finally {
-    connection.release();
   }
 };

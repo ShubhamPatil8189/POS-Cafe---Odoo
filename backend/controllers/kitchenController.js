@@ -1,49 +1,36 @@
-const pool = require('../config/database');
+const prisma = require('../config/database');
 
 // GET /api/kitchen/orders/active
 exports.getActiveOrders = async (req, res) => {
   try {
-    // Fetch orders that are preparing or ready
-    const [orders] = await pool.query(
-      `SELECT id, order_number, table_id as table_number, status, notes, updated_at 
-       FROM orders 
-       WHERE status IN ('preparing', 'ready') 
-       ORDER BY updated_at ASC`
-    );
+    const orders = await prisma.order.findMany({
+      where: {
+        status: { in: ['preparing', 'ready'] }
+      },
+      orderBy: { updated_at: 'asc' },
+      include: {
+        order_lines: true
+      }
+    });
 
-    // If no orders, return early
     if (orders.length === 0) {
       return res.json([]);
     }
 
-    const orderIds = orders.map(o => o.id);
-    
-    // Fetch order lines (items) for these active orders
-    const [items] = await pool.query(
-      `SELECT id, order_id, product_name, quantity, kitchen_status, notes 
-       FROM order_lines 
-       WHERE order_id IN (?)`,
-      [orderIds]
-    );
-
-    // Group items into their respective orders
-    const itemsMap = {};
-    items.forEach(item => {
-      if (!itemsMap[item.order_id]) itemsMap[item.order_id] = [];
-      // Translate kitchen_status into is_prepared boolean for the frontend
-      itemsMap[item.order_id].push({
+    const formattedOrders = orders.map(order => ({
+      id: order.id,
+      order_number: order.order_number,
+      table_number: order.table_id,
+      status: order.status,
+      notes: order.notes,
+      updated_at: order.updated_at,
+      items: order.order_lines.map(item => ({
         id: item.id,
         product_name: item.product_name,
         quantity: item.quantity,
         is_prepared: item.kitchen_status === 'ready',
         special_instructions: item.notes
-      });
-    });
-
-    // Attach items array and format correctly
-    const formattedOrders = orders.map(order => ({
-      ...order,
-      items: itemsMap[order.id] || []
+      }))
     }));
 
     res.json(formattedOrders);
@@ -62,19 +49,38 @@ exports.updateOrderStage = async (req, res) => {
     return res.status(400).json({ error: 'Invalid kitchen status.' });
   }
 
-  const conn = await pool.getConnection();
-
   try {
-    await conn.beginTransaction();
+    await prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: parseInt(id) },
+        data: { status }
+      });
+      
+      // If ticket is completed, mark all its items ready internally
+      if (status === 'completed' || status === 'ready') {
+        await tx.orderLine.updateMany({
+          where: { order_id: parseInt(id) },
+          data: { kitchen_status: 'ready' }
+        });
+         
+        // Start 30-minute eating timer for self-orders when kitchen completes the order
+        const order = await tx.order.findUnique({
+          where: { id: parseInt(id) },
+          select: { table_id: true, source: true }
+        });
 
-    await conn.query('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
-    
-    // If ticket is completed, mark all its items ready internally
-    if (status === 'completed' || status === 'ready') {
-       await conn.query(`UPDATE order_lines SET kitchen_status = 'ready' WHERE order_id = ?`, [id]);
-    }
-
-    await conn.commit();
+        if (order && order.table_id && order.source === 'self_order') {
+          const expiryDate = new Date(Date.now() + 30 * 60 * 1000); // 30 mins
+          await tx.table.update({
+            where: { id: order.table_id },
+            data: { 
+              status: "occupied", 
+              self_order_expiry: expiryDate 
+            }
+          });
+        }
+      }
+    });
 
     const io = req.app.get('io');
     if (io) {
@@ -85,11 +91,8 @@ exports.updateOrderStage = async (req, res) => {
 
     res.json({ id, status, updated_at: new Date() });
   } catch(error) {
-    await conn.rollback();
     console.error('Update kitchen stage error:', error);
     res.status(500).json({ error: 'Failed to update stage.' });
-  } finally {
-    conn.release();
   }
 };
 
@@ -99,45 +102,53 @@ exports.markItemPrepared = async (req, res) => {
   const { is_prepared } = req.body;
 
   const kitchen_status = is_prepared ? 'ready' : 'preparing';
-  const conn = await pool.getConnection();
 
   try {
-    await conn.beginTransaction();
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.orderLine.update({
+        where: { id: parseInt(itemId) },
+        data: { kitchen_status }
+      });
 
-    await conn.query('UPDATE order_lines SET kitchen_status = ? WHERE id = ?', [kitchen_status, itemId]);
+      // Check if ALL items in this order are now prepared
+      const allItems = await tx.orderLine.findMany({
+        where: { order_id: parseInt(id) },
+        select: { kitchen_status: true }
+      });
 
-    // Check if ALL items in this order are now prepared
-    const [allItems] = await conn.query('SELECT kitchen_status FROM order_lines WHERE order_id = ?', [id]);
-    const allReady = allItems.every(item => item.kitchen_status === 'ready');
+      const allReady = allItems.every(item => item.kitchen_status === 'ready');
+      let orderStatusChanged = null;
 
-    let orderStatusChanged = null;
-
-    if (allReady) {
-      // Auto move the root order to 'ready'
-      await conn.query('UPDATE orders SET status = ? WHERE id = ?', ['ready', id]);
-      orderStatusChanged = 'ready';
-    } else {
-      // Ensure the root order says 'preparing'
-      await conn.query('UPDATE orders SET status = ? WHERE id = ?', ['preparing', id]);
-      orderStatusChanged = 'preparing';
-    }
-
-    await conn.commit();
+      if (allReady) {
+        // Auto move the root order to 'ready'
+        await tx.order.update({
+          where: { id: parseInt(id) },
+          data: { status: 'ready' }
+        });
+        orderStatusChanged = 'ready';
+      } else {
+        // Ensure the root order says 'preparing'
+        await tx.order.update({
+          where: { id: parseInt(id) },
+          data: { status: 'preparing' }
+        });
+        orderStatusChanged = 'preparing';
+      }
+      
+      return orderStatusChanged;
+    });
 
     const io = req.app.get('io');
     if (io) {
       io.to('kitchen').emit('kitchen:item-prepared', { orderId: id, itemId, isPrepared: is_prepared });
-      if (orderStatusChanged) {
-        io.to('kitchen').emit('kitchen:stage-updated', { orderId: id, stage: orderStatusChanged });
+      if (result) {
+        io.to('kitchen').emit('kitchen:stage-updated', { orderId: id, stage: result });
       }
     }
 
-    res.json({ id: itemId, is_prepared, prepared_at: is_prepared ? new Date() : null, orderStatusChanged });
+    res.json({ id: itemId, is_prepared, prepared_at: is_prepared ? new Date() : null, orderStatusChanged: result });
   } catch(error) {
-    await conn.rollback();
     console.error('Mark item prepared error:', error);
     res.status(500).json({ error: 'Failed to mark item prepared.' });
-  } finally {
-    conn.release();
   }
 };

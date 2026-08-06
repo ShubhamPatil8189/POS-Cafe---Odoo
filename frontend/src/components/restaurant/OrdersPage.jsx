@@ -17,7 +17,9 @@ function formatCategory(slug) {
 
 export default function OrdersPage({ onPayOrder }) {
   const { orders } = useOrders();
-  const sorted = [...orders].sort((a, b) => b.createdAt - a.createdAt);
+  const sorted = orders
+    .filter((o) => !o.paid)
+    .sort((a, b) => b.createdAt - a.createdAt);
 
   return (
     <div className="mx-auto max-w-3xl pb-8">
@@ -53,10 +55,10 @@ export default function OrdersPage({ onPayOrder }) {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-lg font-black tabular-nums text-text-primary">
-                    Order #{orderNo}{' '}
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">
-                      · Ticket #{orderNo}
-                    </span>
+                     Order #{orderNo}{' '}
+                     <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">
+                       · Ticket #{orderNo}
+                     </span>
                   </p>
                   <p className="mt-1 text-base font-bold text-text-secondary">
                     Table {o.tableNumber} {o.customerName && <span className="ml-2 font-black text-primary-700">· {o.customerName}</span>}
@@ -75,7 +77,7 @@ export default function OrdersPage({ onPayOrder }) {
                       type="button"
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => onPayOrder(o)}
+                      onClick={() => onPayOrder && onPayOrder(o)}
                       className="rounded-full bg-primary-600 px-4 py-2 text-xs font-bold uppercase tracking-wide text-white shadow-md shadow-primary-600/25"
                     >
                       Mark as Paid

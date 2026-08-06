@@ -12,7 +12,7 @@ import OrderTicker from './OrderTicker';
 
 import { useOrders } from '../components/restaurant/OrderContext';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import API_BASE_URL from '../config';
 
 /** KDS uses `completed` or `ready` */
 function isReadyStatus(status) {
@@ -27,7 +27,11 @@ export default function CustomerDisplay() {
     [orders]
   );
   const readyOrders = useMemo(
-    () => orders.filter((o) => isReadyStatus(o.status)),
+    () => 
+      orders
+        .filter((o) => isReadyStatus(o.status))
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .slice(0, 3),
     [orders]
   );
 
@@ -224,14 +228,14 @@ export default function CustomerDisplay() {
           </motion.div>
 
           <LayoutGroup>
-            <div className="flex flex-col gap-5 sm:flex-row sm:flex-wrap sm:justify-center md:gap-8">
+            <div className="grid w-full grid-cols-1 justify-items-center gap-5 sm:grid-cols-2 lg:grid-cols-3 md:gap-8">
               <AnimatePresence mode="popLayout">
                 {readyOrders.length === 0 ? (
                   <motion.p
                     key="empty-ready"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="w-full py-10 text-center text-lg text-white/40"
+                    className="col-span-full w-full py-10 text-center text-lg text-white/40"
                   >
                     Nothing ready yet — hang tight!
                   </motion.p>
@@ -277,7 +281,7 @@ function ReadyCardWrapper({ order, isLatest }) {
   }, [order.id]);
 
   return (
-    <div className="relative">
+    <div className="relative w-full flex justify-center">
       {burst && (
         <motion.div
           className="pointer-events-none absolute inset-0 z-20 rounded-3xl bg-emerald-400/40"

@@ -82,8 +82,11 @@ export function isKitchenEligibleProduct(product) {
     return true;
   }
   
-  // Note: We removed the hard 'return false' here so that even if the flag is off/missing, 
-  // name-based keywords can still catch items (e.g. "Pizza" in name) and route them to KDS.
+  // If explicitly flagged to NOT go to kitchen, return false immediately,
+  // bypassing any legacy keyword matching.
+  if (product.sendToKitchen === false || product.sendToKitchen === 'false') {
+    return false;
+  }
   
   // Safe category check - handles both string slugs and legacy object structures
   const cat = typeof product.category === 'object' ? product.category?.name : product.category;

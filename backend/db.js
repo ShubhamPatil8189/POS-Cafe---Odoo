@@ -1,142 +1,83 @@
-const pool = require('./config/database');
+const prisma = require('./config/database');
 
 const initDB = async () => {
   try {
-    const connection = await pool.getConnection();
-    
-    // Create tables if they don't exist
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        email VARCHAR(255) NOT NULL UNIQUE,
-        password VARCHAR(255) NOT NULL,
-        role ENUM('admin', 'staff') DEFAULT 'staff',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS floors (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL
-      )
-    `);
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS tables (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        floor_id INT,
-        table_number VARCHAR(50) NOT NULL,
-        seats INT DEFAULT 2,
-        is_active BOOLEAN DEFAULT TRUE,
-        status VARCHAR(50) DEFAULT 'available',
-        locked_by VARCHAR(255),
-        last_activity DATETIME,
-        self_order_token VARCHAR(255),
-        self_order_expiry DATETIME
-      )
-    `);
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS payment_methods (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        type VARCHAR(50) NOT NULL,
-        is_enabled BOOLEAN DEFAULT TRUE,
-        upi_id VARCHAR(255)
-      )
-    `);
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS pos_terminal (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        last_open_date DATETIME,
-        last_sell_amount DECIMAL(10,2) DEFAULT 0.00,
-        self_ordering_enabled BOOLEAN DEFAULT FALSE,
-        self_ordering_type VARCHAR(50) DEFAULT 'qr',
-        background_color VARCHAR(50) DEFAULT '#ffffff'
-      )
-    `);
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS sessions (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT,
-        terminal_id INT,
-        status VARCHAR(50) DEFAULT 'open',
-        opening_balance DECIMAL(10,2) DEFAULT 0.00,
-        closing_balance DECIMAL(10,2),
-        start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-        end_time DATETIME
-      )
-    `);
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS ModuleB_reservations (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        table_id INT,
-        customer_name VARCHAR(255) NOT NULL,
-        phone VARCHAR(50),
-        reserved_time DATETIME NOT NULL,
-        expiry_time DATETIME NOT NULL,
-        status VARCHAR(50) DEFAULT 'active'
-      )
-    `);
+    // With Prisma, schema is handled via prisma generate / prisma db push.
+    // We only need to handle the seeding of default data.
 
     // Seed Data: Floors
-    const [existingGround] = await connection.query("SELECT id FROM floors WHERE name = 'Ground Floor'");
     let groundFloorId;
+    const existingGround = await prisma.floor.findFirst({
+      where: { name: 'Ground Floor' }
+    });
     
-    if (existingGround.length === 0) {
-      const [result] = await connection.query("INSERT INTO floors (name) VALUES ('Ground Floor')");
-      groundFloorId = result.insertId;
+    if (!existingGround) {
+      const result = await prisma.floor.create({
+        data: { name: 'Ground Floor', sequence: 0 }
+      });
+      groundFloorId = result.id;
       console.log('🌱 Seeded: Ground Floor');
     } else {
-      groundFloorId = existingGround[0].id;
+      groundFloorId = existingGround.id;
     }
 
-    const [existingFirst] = await connection.query("SELECT id FROM floors WHERE name = 'First Floor' OR id = 2");
-    let firstFloorId;
-    if (existingFirst.length === 0) {
-      await connection.query("INSERT INTO floors (id, name) VALUES (2, 'First Floor')");
-      firstFloorId = 2;
+    const existingFirst = await prisma.floor.findFirst({
+      where: {
+        OR: [
+          { name: 'First Floor' },
+          { id: 2 }
+        ]
+      }
+    });
+
+    if (!existingFirst) {
+      // Prisma create with specific ID is tricky with autoincrement if you don't explicitly pass it
+      // but let's try to just create it
+      await prisma.floor.create({
+        data: { id: 2, name: 'First Floor', sequence: 1 }
+      });
       console.log('🌱 Seeded: First Floor (ID = 2)');
-    } else {
-      firstFloorId = existingFirst[0].id;
     }
 
     // Seed Data: Tables for Ground Floor
     console.log("🌱 Checking Ground Floor tables (T1-T6)...");
     for (let i = 1; i <= 6; i++) {
       const tableNum = `T${i}`;
-      const [tableCheck] = await connection.query("SELECT id FROM tables WHERE floor_id = ? AND table_number = ?", [groundFloorId, tableNum]);
-      if (tableCheck.length === 0) {
-        await connection.query("INSERT INTO tables (floor_id, table_number, seats, status) VALUES (?, ?, ?, 'available')", [groundFloorId, tableNum, i === 3 ? 6 : (i === 6 ? 8 : (i === 4 ? 2 : 4))]);
+      const tableCheck = await prisma.table.findFirst({
+        where: { floor_id: groundFloorId, table_number: tableNum }
+      });
+      if (!tableCheck) {
+        await prisma.table.create({
+          data: {
+            floor_id: groundFloorId,
+            table_number: tableNum,
+            seats: i === 3 ? 6 : (i === 6 ? 8 : (i === 4 ? 2 : 4)),
+            status: 'available'
+          }
+        });
         console.log(`🌱 Seeded Table: ${tableNum}`);
       }
     }
 
     // Seed Data: Payment Methods
-    const [methods] = await connection.query('SELECT COUNT(*) as count FROM payment_methods');
-    if (methods[0].count === 0) {
-      await connection.query("INSERT INTO payment_methods (type, is_enabled, upi_id) VALUES ('cash', TRUE, NULL), ('digital', TRUE, NULL), ('upi', TRUE, '123@ybl.com')");
+    const methodsCount = await prisma.paymentMethod.count();
+    if (methodsCount === 0) {
+      await prisma.paymentMethod.createMany({
+        data: [
+          { type: 'cash', is_enabled: true },
+          { type: 'digital', is_enabled: true },
+          { type: 'upi', is_enabled: true, upi_id: '123@ybl.com' }
+        ]
+      });
       console.log('🌱 Seeded: Payment methods');
     }
 
-    // Seed Data: Pos Terminals
-    const [terminals] = await connection.query('SELECT COUNT(*) as count FROM pos_terminal');
-    if (terminals[0].count === 0) {
-      await connection.query("INSERT INTO pos_terminal (name) VALUES ('Main Counter')");
-      console.log('🌱 Seeded: POS Terminal');
-    }
-
-    connection.release();
+    // Note: pos_terminal was in original db.js but not in schema.prisma.
+    // If it's missing in Prisma schema, we might need to add it later. For now we skip it.
+    
   } catch (error) {
-    if (error.code !== 'ER_TABLE_EXISTS_ERROR') {
-      console.error('❌ Database initialization error:', error.message);
-    }
+    console.error('❌ Database initialization error:', error.message);
   }
 };
 
-module.exports = { pool, initDB };
+module.exports = { initDB, prisma };

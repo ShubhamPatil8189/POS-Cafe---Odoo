@@ -1,48 +1,36 @@
-const pool = require('../config/database');
+const prisma = require('../config/database');
 
 // ── Get All Products (with category, variants, extras) ─
 exports.getAll = async (req, res) => {
   try {
-    const [products] = await pool.query(`
-      SELECT p.*, c.name as category_name, c.color as category_color
-      FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
-      ORDER BY p.id ASC
-    `);
+    const products = await prisma.product.findMany({
+      include: {
+        category: true,
+        product_variants: {
+          include: {
+            attribute: true
+          }
+        },
+        product_extras: true
+      },
+      orderBy: { id: 'asc' }
+    });
 
-    // Fetch variants and extras for all products (unchanged)
-
-    // Fetch variants and extras for all products
-    const productIds = products.map(p => p.id);
-
-    let variants = [];
-    let extras = [];
-
-    if (productIds.length > 0) {
-      const [variantRows] = await pool.query(`
-        SELECT pv.*, pa.attribute_name
-        FROM product_variants pv
-        JOIN product_attributes pa ON pv.attribute_id = pa.id
-        WHERE pv.product_id IN (?)
-      `, [productIds]);
-      variants = variantRows;
-
-      const [extraRows] = await pool.query(`
-        SELECT * FROM product_extras WHERE product_id IN (?)
-      `, [productIds]);
-      extras = extraRows;
-    }
-
-    // Attach variants and extras to each product
     const result = products.map(product => ({
       ...product,
       image: product.image_url, // Map for frontend
       available: product.is_active ? true : false, // Map for frontend
       sendToKitchen: Boolean(product.send_to_kitchen),
-      category: product.category_name ? product.category_name.toLowerCase() : null,
-      category_name: product.category_name,
-      variants: variants.filter(v => v.product_id === product.id),
-      extras: extras.filter(e => e.product_id === product.id)
+      category: product.category?.name ? product.category.name.toLowerCase() : null,
+      category_name: product.category?.name || null,
+      category_color: product.category?.color || null,
+      variants: product.product_variants.map(v => ({
+        ...v,
+        attribute_name: v.attribute?.attribute_name
+      })),
+      extras: product.product_extras,
+      product_variants: undefined,
+      product_extras: undefined
     }));
 
     res.json(result);
@@ -57,44 +45,41 @@ exports.getById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const [products] = await pool.query(`
-      SELECT p.*, c.name as category_name, c.color as category_color
-      FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
-      WHERE p.id = ?
-    `, [id]);
+    const product = await prisma.product.findUnique({
+      where: { id: parseInt(id) },
+      include: {
+        category: true,
+        product_variants: {
+          include: {
+            attribute: true
+          }
+        },
+        product_extras: true,
+        product_attributes: true
+      }
+    });
 
-    if (products.length === 0) {
+    if (!product) {
       return res.status(404).json({ error: 'Product not found.' });
     }
-
-    const product = products[0];
-
-    const [variants] = await pool.query(`
-      SELECT pv.*, pa.attribute_name
-      FROM product_variants pv
-      JOIN product_attributes pa ON pv.attribute_id = pa.id
-      WHERE pv.product_id = ?
-    `, [id]);
-
-    const [extras] = await pool.query(
-      'SELECT * FROM product_extras WHERE product_id = ?', [id]
-    );
-
-    const [attributes] = await pool.query(
-      'SELECT * FROM product_attributes WHERE product_id = ?', [id]
-    );
 
     res.json({
       ...product,
       image: product.image_url, // Map for frontend
       available: product.is_active ? true : false,
       sendToKitchen: Boolean(product.send_to_kitchen),
-      category: product.category_name ? product.category_name.toLowerCase() : null,
-      category_name: product.category_name,
-      attributes,
-      variants,
-      extras
+      category: product.category?.name ? product.category.name.toLowerCase() : null,
+      category_name: product.category?.name || null,
+      category_color: product.category?.color || null,
+      attributes: product.product_attributes,
+      variants: product.product_variants.map(v => ({
+        ...v,
+        attribute_name: v.attribute?.attribute_name
+      })),
+      extras: product.product_extras,
+      product_attributes: undefined,
+      product_variants: undefined,
+      product_extras: undefined
     });
   } catch (error) {
     console.error('Get product error:', error);
@@ -111,24 +96,21 @@ exports.create = async (req, res) => {
       return res.status(400).json({ error: 'Name, category_id, and price are required.' });
     }
 
-    const [result] = await pool.query(
-      `INSERT INTO products (name, category_id, price, tax, uom, description, image_url, is_active, send_to_kitchen)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        name, 
-        category_id, 
-        price, 
-        tax || 0, 
-        uom || 'piece', 
-        description || null, 
-        image_url || null,
-        is_active !== undefined ? is_active : true, 
-        send_to_kitchen !== undefined ? send_to_kitchen : true
-      ]
-    );
+    const created = await prisma.product.create({
+      data: {
+        name,
+        category_id: parseInt(category_id),
+        price: parseFloat(price),
+        tax: tax !== undefined ? parseFloat(tax) : 0,
+        uom: uom || 'piece',
+        description: description || null,
+        image_url: image_url || null,
+        is_active: is_active !== undefined ? Boolean(is_active) : true,
+        send_to_kitchen: send_to_kitchen !== undefined ? Boolean(send_to_kitchen) : true
+      }
+    });
 
-    const [created] = await pool.query('SELECT * FROM products WHERE id = ?', [result.insertId]);
-    res.status(201).json(created[0]);
+    res.status(201).json(created);
   } catch (error) {
     console.error('Create product error:', error);
     res.status(500).json({ error: 'Failed to create product.' });
@@ -141,37 +123,34 @@ exports.update = async (req, res) => {
     const { id } = req.params;
     const { name, category_id, price, tax, uom, description, image_url, is_active, send_to_kitchen, available, sendToKitchen } = req.body;
 
-    const [existing] = await pool.query('SELECT * FROM products WHERE id = ?', [id]);
-    if (existing.length === 0) {
+    const existing = await prisma.product.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!existing) {
       return res.status(404).json({ error: 'Product not found.' });
     }
 
-    const p = existing[0];
-
     // Map frontend camelCase to backend snake_case
-    const final_is_active = is_active !== undefined ? is_active : (available !== undefined ? available : p.is_active);
-    const final_send_to_kitchen = send_to_kitchen !== undefined ? send_to_kitchen : (sendToKitchen !== undefined ? sendToKitchen : p.send_to_kitchen);
+    const final_is_active = is_active !== undefined ? Boolean(is_active) : (available !== undefined ? Boolean(available) : existing.is_active);
+    const final_send_to_kitchen = send_to_kitchen !== undefined ? Boolean(send_to_kitchen) : (sendToKitchen !== undefined ? Boolean(sendToKitchen) : existing.send_to_kitchen);
 
-    await pool.query(
-      `UPDATE products 
-       SET name = ?, category_id = ?, price = ?, tax = ?, uom = ?, description = ?, image_url = ?, is_active = ?, send_to_kitchen = ? 
-       WHERE id = ?`,
-      [
-        name || p.name,
-        category_id || p.category_id,
-        price !== undefined ? price : p.price,
-        tax !== undefined ? tax : p.tax,
-        uom || p.uom,
-        description !== undefined ? description : p.description,
-        image_url !== undefined ? image_url : p.image_url,
-        final_is_active,
-        final_send_to_kitchen,
-        id
-      ]
-    );
+    const updated = await prisma.product.update({
+      where: { id: parseInt(id) },
+      data: {
+        name: name !== undefined ? name : existing.name,
+        category_id: category_id !== undefined ? parseInt(category_id) : existing.category_id,
+        price: price !== undefined ? parseFloat(price) : existing.price,
+        tax: tax !== undefined ? parseFloat(tax) : existing.tax,
+        uom: uom !== undefined ? uom : existing.uom,
+        description: description !== undefined ? description : existing.description,
+        image_url: image_url !== undefined ? image_url : existing.image_url,
+        is_active: final_is_active,
+        send_to_kitchen: final_send_to_kitchen
+      }
+    });
 
-    const [updated] = await pool.query('SELECT * FROM products WHERE id = ?', [id]);
-    res.json(updated[0]);
+    res.json(updated);
   } catch (error) {
     console.error('Update product error:', error);
     res.status(500).json({ error: 'Failed to update product.' });
@@ -183,16 +162,29 @@ exports.remove = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const [existing] = await pool.query('SELECT * FROM products WHERE id = ?', [id]);
-    if (existing.length === 0) {
+    const existing = await prisma.product.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!existing) {
       return res.status(404).json({ error: 'Product not found.' });
     }
 
-    // Delete related data first
-    await pool.query('DELETE FROM product_extras WHERE product_id = ?', [id]);
-    await pool.query('DELETE FROM product_variants WHERE product_id IN (SELECT id FROM product_attributes WHERE product_id = ?)', [id]);
-    await pool.query('DELETE FROM product_attributes WHERE product_id = ?', [id]);
-    await pool.query('DELETE FROM products WHERE id = ?', [id]);
+    // Prisma handles cascading deletes if configured in schema.prisma,
+    // but the schema may not have ON DELETE CASCADE. Let's do it manually in a transaction just in case.
+    await prisma.$transaction(async (tx) => {
+      await tx.productExtra.deleteMany({ where: { product_id: parseInt(id) } });
+      
+      const attrs = await tx.productAttribute.findMany({ where: { product_id: parseInt(id) } });
+      const attrIds = attrs.map(a => a.id);
+      
+      if (attrIds.length > 0) {
+        await tx.productVariant.deleteMany({ where: { attribute_id: { in: attrIds } } });
+      }
+      
+      await tx.productAttribute.deleteMany({ where: { product_id: parseInt(id) } });
+      await tx.product.delete({ where: { id: parseInt(id) } });
+    });
 
     res.json({ message: 'Product deleted successfully.' });
   } catch (error) {
@@ -211,21 +203,23 @@ exports.addAttribute = async (req, res) => {
       return res.status(400).json({ error: 'Attribute name is required.' });
     }
 
-    const [product] = await pool.query('SELECT id FROM products WHERE id = ?', [id]);
-    if (product.length === 0) {
+    const product = await prisma.product.findUnique({
+      where: { id: parseInt(id) },
+      select: { id: true }
+    });
+
+    if (!product) {
       return res.status(404).json({ error: 'Product not found.' });
     }
 
-    const [result] = await pool.query(
-      'INSERT INTO product_attributes (product_id, attribute_name) VALUES (?, ?)',
-      [id, attribute_name]
-    );
-
-    res.status(201).json({
-      id: result.insertId,
-      product_id: parseInt(id),
-      attribute_name
+    const created = await prisma.productAttribute.create({
+      data: {
+        product_id: parseInt(id),
+        attribute_name
+      }
     });
+
+    res.status(201).json(created);
   } catch (error) {
     console.error('Add attribute error:', error);
     res.status(500).json({ error: 'Failed to add attribute.' });
@@ -242,19 +236,17 @@ exports.addVariant = async (req, res) => {
       return res.status(400).json({ error: 'Attribute ID and value are required.' });
     }
 
-    const [result] = await pool.query(
-      'INSERT INTO product_variants (product_id, attribute_id, value, unit, extra_price) VALUES (?, ?, ?, ?, ?)',
-      [id, attribute_id, value, unit || null, extra_price || 0]
-    );
-
-    res.status(201).json({
-      id: result.insertId,
-      product_id: parseInt(id),
-      attribute_id,
-      value,
-      unit,
-      extra_price: extra_price || 0
+    const created = await prisma.productVariant.create({
+      data: {
+        product_id: parseInt(id),
+        attribute_id: parseInt(attribute_id),
+        value,
+        unit: unit || null,
+        extra_price: extra_price ? parseFloat(extra_price) : 0
+      }
     });
+
+    res.status(201).json(created);
   } catch (error) {
     console.error('Add variant error:', error);
     res.status(500).json({ error: 'Failed to add variant.' });
@@ -265,11 +257,19 @@ exports.addVariant = async (req, res) => {
 exports.removeVariant = async (req, res) => {
   try {
     const { id } = req.params;
-    const [existing] = await pool.query('SELECT * FROM product_variants WHERE id = ?', [id]);
-    if (existing.length === 0) {
+    
+    const existing = await prisma.productVariant.findUnique({
+      where: { id: parseInt(id) }
+    });
+    
+    if (!existing) {
       return res.status(404).json({ error: 'Variant not found.' });
     }
-    await pool.query('DELETE FROM product_variants WHERE id = ?', [id]);
+    
+    await prisma.productVariant.delete({
+      where: { id: parseInt(id) }
+    });
+    
     res.json({ message: 'Variant deleted successfully.' });
   } catch (error) {
     console.error('Delete variant error:', error);
@@ -287,18 +287,16 @@ exports.addExtra = async (req, res) => {
       return res.status(400).json({ error: 'Extra name is required.' });
     }
 
-    const [result] = await pool.query(
-      'INSERT INTO product_extras (product_id, name, extra_price, is_active) VALUES (?, ?, ?, ?)',
-      [id, name, extra_price || 0, true]
-    );
-
-    res.status(201).json({
-      id: result.insertId,
-      product_id: parseInt(id),
-      name,
-      extra_price: extra_price || 0,
-      is_active: true
+    const created = await prisma.productExtra.create({
+      data: {
+        product_id: parseInt(id),
+        name,
+        extra_price: extra_price ? parseFloat(extra_price) : 0,
+        is_active: true
+      }
     });
+
+    res.status(201).json(created);
   } catch (error) {
     console.error('Add extra error:', error);
     res.status(500).json({ error: 'Failed to add extra.' });
@@ -309,11 +307,19 @@ exports.addExtra = async (req, res) => {
 exports.removeExtra = async (req, res) => {
   try {
     const { id } = req.params;
-    const [existing] = await pool.query('SELECT * FROM product_extras WHERE id = ?', [id]);
-    if (existing.length === 0) {
+    
+    const existing = await prisma.productExtra.findUnique({
+      where: { id: parseInt(id) }
+    });
+    
+    if (!existing) {
       return res.status(404).json({ error: 'Extra not found.' });
     }
-    await pool.query('DELETE FROM product_extras WHERE id = ?', [id]);
+    
+    await prisma.productExtra.delete({
+      where: { id: parseInt(id) }
+    });
+    
     res.json({ message: 'Extra deleted successfully.' });
   } catch (error) {
     console.error('Delete extra error:', error);

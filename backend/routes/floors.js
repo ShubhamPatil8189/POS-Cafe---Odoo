@@ -1,55 +1,32 @@
 const express = require('express');
-const { pool } = require('../db.js');
+const prisma = require('../config/database');
 
 const router = express.Router();
 const auth = require('../middleware/auth');
 
 router.use(auth);
 
-// GET /api/floors - Get all floors including tables using a LEFT JOIN / grouped response
+// GET /api/floors - Get all floors including tables
 router.get('/', async (req, res) => {
   try {
-    const [rows] = await pool.query(`
-      SELECT 
-        f.id AS floor_id, 
-        f.name AS floor_name, 
-        t.id AS table_id, 
-        t.table_number, 
-        t.seats, 
-        t.is_active, 
-        t.status, 
-        t.locked_by, 
-        t.last_activity
-      FROM floors f
-      LEFT JOIN tables t ON f.id = t.floor_id
-    `);
-
-    // Group tables by floor
-    const floorsMap = {};
-    rows.forEach(row => {
-      if (!floorsMap[row.floor_id]) {
-        floorsMap[row.floor_id] = {
-          id: row.floor_id,
-          name: row.floor_name,
-          tables: []
-        };
-      }
-      // Only push if a table actually exists (LEFT JOIN means there could be nulls if no tables)
-      if (row.table_id) {
-        floorsMap[row.floor_id].tables.push({
-          id: row.table_id,
-          floor_id: row.floor_id,
-          table_number: row.table_number,
-          seats: row.seats,
-          is_active: row.is_active === 1,
-          status: row.status,
-          locked_by: row.locked_by,
-          last_activity: row.last_activity
-        });
+    const floors = await prisma.floor.findMany({
+      include: {
+        tables: {
+          select: {
+            id: true,
+            floor_id: true,
+            table_number: true,
+            seats: true,
+            is_active: true,
+            status: true,
+            locked_by: true,
+            last_activity: true
+          }
+        }
       }
     });
 
-    res.json(Object.values(floorsMap));
+    res.json(floors);
   } catch (error) {
     console.error('Error fetching floors:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -62,8 +39,11 @@ router.post('/', async (req, res) => {
     const { name } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
 
-    const [result] = await pool.query('INSERT INTO floors (name) VALUES (?)', [name]);
-    res.status(201).json({ id: result.insertId, name });
+    const created = await prisma.floor.create({
+      data: { name }
+    });
+    
+    res.status(201).json({ id: created.id, name });
   } catch (error) {
     console.error('Error creating floor:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -77,7 +57,11 @@ router.put('/:id', async (req, res) => {
     const { name } = req.body;
     if (!name) return res.status(400).json({ error: 'Name is required' });
 
-    await pool.query('UPDATE floors SET name = ? WHERE id = ?', [name, id]);
+    const updated = await prisma.floor.update({
+      where: { id: parseInt(id) },
+      data: { name }
+    });
+    
     res.json({ id: parseInt(id), name });
   } catch (error) {
     console.error('Error updating floor:', error);
@@ -91,12 +75,18 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     
     // Check if tables are assigned to this floor
-    const [tables] = await pool.query('SELECT COUNT(*) as count FROM tables WHERE floor_id = ?', [id]);
-    if (tables[0].count > 0) {
+    const tablesCount = await prisma.table.count({
+      where: { floor_id: parseInt(id) }
+    });
+    
+    if (tablesCount > 0) {
       return res.status(400).json({ error: 'Cannot delete floor with assigned tables. Reassign or delete tables first.' });
     }
 
-    await pool.query('DELETE FROM floors WHERE id = ?', [id]);
+    await prisma.floor.delete({
+      where: { id: parseInt(id) }
+    });
+    
     res.json({ message: 'Deleted' });
   } catch (error) {
     console.error('Error deleting floor:', error);

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 
 function itemSummary(items) {
   if (!items?.length) return '—';
-  return items.map((it) => `${it.name} ×${it.qty}`).join(' · ');
+  return items.map((it) => `${it.name} ×${Number(it.qty)}`).join(' · ');
 }
 
 export default function DisplayCard({
@@ -20,6 +20,12 @@ export default function DisplayCard({
   const titleColor = isPreparing
     ? 'from-amber-200 via-yellow-100 to-amber-300'
     : 'from-emerald-200 via-green-100 to-emerald-300';
+
+  const widthClass = isPreparing
+    ? 'min-w-[min(100vw-2rem,22rem)] md:min-w-[24rem] max-w-md'
+    : 'w-full max-w-md';
+
+  const shortOrderNum = (order.orderNumber || String(order.id)).split('-').pop();
 
   return (
     <motion.article
@@ -42,7 +48,7 @@ export default function DisplayCard({
         stiffness: 260,
         damping: 22,
       }}
-      className={`relative flex min-w-[min(100vw-2rem,22rem)] max-w-md shrink-0 flex-col rounded-3xl border-2 bg-white/5 p-6 backdrop-blur-2xl md:min-w-[24rem] md:p-8 ${glowClass}`}
+      className={`relative flex ${widthClass} shrink-0 flex-col rounded-3xl border-2 bg-white/5 p-6 backdrop-blur-2xl md:p-8 ${glowClass}`}
     >
       {isLatest && (
         <motion.div
@@ -62,24 +68,30 @@ export default function DisplayCard({
 
       <div className="relative z-10 flex flex-col gap-4">
         <div className="flex flex-wrap items-end justify-between gap-2">
-           <div className="flex flex-col">
+           <div className="flex flex-col overflow-hidden">
              {order.customerName && (
-               <span className="text-xs font-black uppercase tracking-widest text-violet-300/80 mb-1">
+               <span className="text-xs font-black uppercase tracking-widest text-violet-300/80 mb-1 truncate">
                  Customer: {order.customerName}
                </span>
              )}
              <p
-               className={`bg-gradient-to-br bg-clip-text text-5xl font-black tabular-nums tracking-tighter text-transparent sm:text-6xl md:text-7xl ${titleColor}`}
+               className={`bg-gradient-to-br bg-clip-text text-4xl font-black tabular-nums tracking-tighter text-transparent sm:text-5xl md:text-6xl truncate ${titleColor}`}
              >
-               #{order.orderNumber || order.id}
+               #{shortOrderNum}
              </p>
            </div>
-          <span className="rounded-full bg-white/10 px-4 py-1.5 text-sm font-bold uppercase tracking-widest text-white/90 ring-1 ring-white/20">
-            Table {order.tableNumber}
-          </span>
+          {order.tableNumber ? (
+            <span className="shrink-0 rounded-full bg-white/10 px-4 py-1.5 text-sm font-bold uppercase tracking-widest text-white/90 ring-1 ring-white/20">
+              Table {order.tableNumber}
+            </span>
+          ) : (
+            <span className="shrink-0 rounded-full bg-white/10 px-4 py-1.5 text-sm font-bold uppercase tracking-widest text-white/90 ring-1 ring-white/20">
+              Takeaway
+            </span>
+          )}
         </div>
 
-        <p className="text-base font-medium leading-relaxed text-white/85 md:text-lg">
+        <p className="text-base font-medium leading-relaxed text-white/85 md:text-lg line-clamp-2">
           {itemSummary(order.items)}
         </p>
 

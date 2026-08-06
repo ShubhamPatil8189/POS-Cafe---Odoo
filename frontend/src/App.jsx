@@ -178,10 +178,11 @@ export default function App() {
 
       try {
         const headers = { 'Authorization': `Bearer ${token}` };
-        const [prodRes, catRes, tableRes] = await Promise.all([
+        const [prodRes, catRes, tableRes, sessionRes] = await Promise.all([
           fetch(`${API_BASE_URL}/products`, { headers }),
           fetch(`${API_BASE_URL}/categories`, { headers }),
-          fetch(`${API_BASE_URL}/tables`, { headers })
+          fetch(`${API_BASE_URL}/tables`, { headers }),
+          fetch(`${API_BASE_URL}/sessions/current`, { headers })
         ]);
 
         if (prodRes.ok) setProducts(await prodRes.json());
@@ -195,6 +196,26 @@ export default function App() {
             floor: t.floor_id === 2 ? 'first' : 'ground', // Map backend IDs to UI floor names
             state: t.status === 'available' ? 'available' : 'occupied'
           })));
+        }
+        if (sessionRes.ok) {
+          const activeSession = await sessionRes.json();
+          if (activeSession) {
+            setSession({
+              id: activeSession.id,
+              status: activeSession.status,
+              openingBalance: parseFloat(activeSession.opening_balance || 0),
+              sales: {
+                cash: parseFloat(activeSession.sales?.cash || 0),
+                digital: parseFloat(activeSession.sales?.digital || 0)
+              }
+            });
+          } else {
+            setSession({
+              status: 'closed',
+              openingBalance: 0,
+              sales: { cash: 0, digital: 0 }
+            });
+          }
         }
       } catch (err) {
         console.error('Fetch error:', err);
@@ -317,7 +338,7 @@ export default function App() {
     );
   };
 
-  const handlePaymentComplete = (amount, method, tableId) => {
+  const handlePaymentComplete = (amount, method, tableId, keepOccupied = false) => {
     // Update active session stats
     setSession(prev => ({
       ...prev,
@@ -327,10 +348,41 @@ export default function App() {
       }
     }));
 
-    // Block table for 5 minutes after direct payment
-    const blockUntil = Date.now() + (5 * 60 * 1000);
-    setTables(prev => prev.map(t => t.id === tableId ? { ...t, state: 'blocked', blockedUntil: blockUntil } : t));
-    addToast(`Payment completed. Table Occupied for 5 min. Kitchen notified.`, 'success');
+    if (keepOccupied) {
+      setTables(prev => prev.map(t => t.id === tableId ? { ...t, state: 'occupied', blockedUntil: null } : t));
+      addToast(`Payment completed. Table remains Occupied for dining.`, 'success');
+    } else {
+      setTables(prev => prev.map(t => t.id === tableId ? { ...t, state: 'available', blockedUntil: null } : t));
+      addToast(`Payment completed. Table is now Available.`, 'success');
+    }
+  };
+
+  const handleClearTable = async (tableId) => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      addToast('Authentication token missing. Please log in.', 'error');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/tables/${tableId}/clear`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setTables(prev => prev.map(t => t.id === tableId ? { ...t, state: 'available', blockedUntil: null } : t));
+        addToast('Table cleared and is now available.', 'success');
+      } else {
+        const errorData = await response.json();
+        addToast(errorData.error || 'Failed to clear table.', 'error');
+      }
+    } catch (err) {
+      console.error('Error clearing table:', err);
+      addToast('Network error while clearing table.', 'error');
+    }
   };
 
   const handleMarkPaid = (tableNumber) => {
@@ -438,6 +490,7 @@ export default function App() {
             onPaymentComplete={handlePaymentComplete}
             onCloseSessionClick={() => setShowCloseModal(true)}
             onLogout={handleLogout}
+            onClearTable={handleClearTable}
           />
         );
       case 'kitchen': return <KitchenDashboard />;

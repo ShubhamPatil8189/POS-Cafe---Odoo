@@ -261,15 +261,12 @@ export default function ProductManagement({ user }) {
                       type="button"
                       role="switch"
                       aria-checked={on}
-                      disabled={!isAdmin}
-                      onClick={() =>
-                        isAdmin && updateProduct(p.id, { sendToKitchen: !on })
-                      }
-                      className={`relative inline-flex h-8 w-[3rem] shrink-0 items-center rounded-full border-2 transition-all duration-300 ${
+                      onClick={() => updateProduct(p.id, { sendToKitchen: !on })}
+                      className={`relative inline-flex h-8 w-[3rem] shrink-0 items-center rounded-full border-2 transition-all duration-300 hover:scale-110 active:scale-95 ${
                         on
                           ? 'border-orange-400 bg-gradient-to-r from-orange-500 to-amber-500 shadow-lg shadow-orange-500/20'
                           : 'border-slate-200 bg-slate-100'
-                      } ${!isAdmin ? 'opacity-40 cursor-not-allowed' : 'hover:scale-110 active:scale-95'}`}
+                      }`}
                     >
                       <span
                         className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-md transition-transform duration-300 ${

@@ -102,7 +102,7 @@ export default function PaymentScreen({ isOpen, onClose, total, cartItems, payme
           product_name: pname,
           quantity: pqty,
           price: pprice,
-          tax_rate: 5
+          tax_rate: item.tax || 0
         })
       });
     }

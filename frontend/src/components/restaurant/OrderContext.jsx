@@ -32,6 +32,7 @@ export function fullLinesFromCart(cart) {
       category: item.category?.name || item.category || null,
       sendToKitchen: isKitchen,
       prepared: !isKitchen,
+      tax: item.tax || 0,
     };
   });
 }
@@ -77,12 +78,14 @@ export function OrderProvider({ children, onExternalPayment }) {
         return {
           id: dbo.id,
           orderNumber: dbo.order_number || `#${dbo.id}`,
-          tableNumber: parseInt(dbo.table_id), // Assuming table_id is the number here, adjust if needed
+          tableId: dbo.table_id,
+          tableNumber: dbo.table_number || dbo.table_id,
+          total: parseFloat(dbo.total || 0),
           items: items.map(it => ({
             productId: it.product_id,
             name: it.product_name,
-            qty: it.quantity,
-            price: it.price,
+            qty: parseFloat(it.quantity || 1),
+            price: parseFloat(it.unit_price || 0),
             category: it.category_id, // Simplified
             prepared: dbo.status !== 'toCook'
           })),
@@ -156,7 +159,7 @@ export function OrderProvider({ children, onExternalPayment }) {
    * @returns {boolean} true if at least one kitchen ticket was created
    */
   const sendToKitchen = useCallback(
-    async (tableNumber, cart, customerName = null, isPaid = false) => {
+    async (tableId, tableNumber, cart, customerName = null, isPaid = false, paymentMethodType = 'cash', sessionId = null) => {
       const lines = fullLinesFromCart(cart);
       if (lines.length === 0) return false;
 
@@ -171,10 +174,11 @@ export function OrderProvider({ children, onExternalPayment }) {
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ 
             order_type: 'pos',
-            table_number: tableNumber,
+            table_id: tableId,
+            session_id: sessionId,
             customer_name: customerName,
             status: hasPrepItems ? 'toCook' : 'completed',
-            is_paid: isPaid ? 1 : 0
+            is_paid: 0 // We will update this later if isPaid is true
           })
         });
         
@@ -191,14 +195,23 @@ export function OrderProvider({ children, onExternalPayment }) {
                product_name: line.name,
                quantity: line.qty,
                price: line.price,
-               tax_rate: 5
+               tax_rate: line.tax
              })
            });
+        }
+
+        if (isPaid) {
+          await fetch(`${API_BASE_URL}/orders/${dbOrder.id}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ status: hasPrepItems ? 'toCook' : 'completed', is_paid: true, payment_method_type: paymentMethodType, session_id: sessionId })
+          });
         }
 
         const order = {
           id: dbOrder.id,
           orderNumber: dbOrder.order_number || nextOrderId,
+          tableId,
           tableNumber,
           customerName,
           items: lines,
@@ -285,24 +298,57 @@ export function OrderProvider({ children, onExternalPayment }) {
   }, []);
 
   const markPaid = useCallback(
-    (orderId) => {
+    async (orderId, paymentMethodType = 'cash', sessionId = null) => {
       const order = orders.find(o => o.id === orderId);
-      if (order && !order.paid) {
-        if (onExternalPayment) {
-          setTimeout(() => onExternalPayment(order.tableNumber), 0);
+      if (!order) return;
+
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE_URL}/orders/${order.id}/status`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ status: 'completed', is_paid: true, payment_method_type: paymentMethodType, session_id: sessionId })
+        });
+
+        if (response.ok) {
+          if (onExternalPayment) {
+            setTimeout(() => onExternalPayment(order.tableNumber), 0);
+          }
+          setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, paid: true, status: 'completed' } : o)));
+          pushToast('Payment Completed ✔', 'success');
+        } else {
+          const errorData = await response.json();
+          pushToast(errorData.error || 'Failed to complete payment on server.', 'error');
         }
-        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, paid: true } : o)));
-        pushToast('Payment Completed ✔', 'success');
+      } catch (err) {
+        console.error('Error completing payment:', err);
+        pushToast('Network error while completing payment.', 'error');
       }
     },
     [orders, pushToast, onExternalPayment]
   );
 
   const markTableOrdersPaid = useCallback(
-    (tableNumber) => {
-      setOrders(prev => prev.map(o => o.tableNumber === tableNumber ? { ...o, paid: true } : o));
+    async (tableNumber, paymentMethodType = 'cash', sessionId = null) => {
+      const ordersToPay = orders.filter(o => o.tableNumber === tableNumber && !o.paid);
+      for (const o of ordersToPay) {
+        try {
+          const token = localStorage.getItem('token');
+          await fetch(`${API_BASE_URL}/orders/${o.id}/status`, {
+             method: 'PUT',
+             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+             body: JSON.stringify({ status: 'completed', is_paid: true, payment_method_type: paymentMethodType, session_id: sessionId })
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      setOrders(prev => prev.map(o => o.tableNumber === tableNumber ? { ...o, paid: true, status: 'completed' } : o));
     },
-    []
+    [orders]
   );
 
   const ordersByStatus = useMemo(() => {

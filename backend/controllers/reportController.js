@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const prisma = require('../config/database');
 const PDFDocument = require('pdfkit');
 const ExcelJS = require('exceljs');
 
@@ -52,30 +52,32 @@ exports.getDashboard = async (req, res) => {
     const productParams = f.hasProductFilter ? [f.product_id] : [];
 
     // 1. All-time totals
-    const [totals] = await pool.query(
+    const totals = await prisma.$queryRawUnsafe(
       `SELECT SUM(o.total) as total_sales, COUNT(DISTINCT o.id) as total_orders
        FROM orders o
        ${productJoin}
        WHERE ${f.sql}`,
-      [...productParams, ...f.params]
+      ...productParams, ...f.params
     );
-    const total_sales = parseFloat(totals[0].total_sales || 0);
-    const total_orders = parseInt(totals[0].total_orders || 0);
+    const total_sales = totals[0] && totals[0].total_sales ? parseFloat(totals[0].total_sales) : 0;
+    const total_orders = totals[0] && totals[0].total_orders ? parseInt(totals[0].total_orders.toString()) : 0;
     const avg_order_value = total_orders > 0
       ? parseFloat((total_sales / total_orders).toFixed(2))
       : 0;
 
     // 2. Today's figures
-    const [today] = await pool.query(
+    const today = await prisma.$queryRawUnsafe(
       `SELECT SUM(o.total) as sales_today, COUNT(DISTINCT o.id) as orders_today
        FROM orders o
        ${productJoin}
        WHERE ${f.sql} AND DATE(o.created_at) = CURDATE()`,
-      [...productParams, ...f.params]
+      ...productParams, ...f.params
     );
+    const sales_today = today[0] && today[0].sales_today ? parseFloat(today[0].sales_today) : 0;
+    const orders_today = today[0] && today[0].orders_today ? parseInt(today[0].orders_today.toString()) : 0;
 
     // 3. Top 5 Products
-    const [topProducts] = await pool.query(
+    const topProducts = await prisma.$queryRawUnsafe(
       `SELECT ol.product_name as name,
               SUM(ol.quantity) as quantity_sold,
               SUM(ol.subtotal) as revenue
@@ -86,11 +88,11 @@ exports.getDashboard = async (req, res) => {
        GROUP BY ol.product_name
        ORDER BY quantity_sold DESC
        LIMIT 5`,
-      [...productParams, ...f.params]
+      ...productParams, ...f.params
     );
 
     // 4. Payment method breakdown
-    const [payments] = await pool.query(
+    const payments = await prisma.$queryRawUnsafe(
       `SELECT pm.type, SUM(p.amount) as total
        FROM payments p
        JOIN payment_methods pm ON p.method_id = pm.id
@@ -98,7 +100,7 @@ exports.getDashboard = async (req, res) => {
        ${productJoin}
        WHERE p.status = 'completed' AND ${f.sql}
        GROUP BY pm.type`,
-      [...productParams, ...f.params]
+      ...productParams, ...f.params
     );
     const totalPayments = payments.reduce((s, p) => s + parseFloat(p.total || 0), 0);
     const payment_breakdown = payments.map(p => ({
@@ -110,22 +112,22 @@ exports.getDashboard = async (req, res) => {
     }));
 
     // 5. Sales trend
-    const [salesByDay] = await pool.query(
+    const salesByDay = await prisma.$queryRawUnsafe(
       `SELECT DATE(o.created_at) as date, SUM(o.total) as total
        FROM orders o
        ${productJoin}
        WHERE ${f.sql}
        GROUP BY DATE(o.created_at)
        ORDER BY DATE(o.created_at) ASC`,
-      [...productParams, ...f.params]
+      ...productParams, ...f.params
     );
 
     res.json({
       total_sales,
       total_orders,
       avg_order_value,
-      orders_today: parseInt(today[0].orders_today || 0),
-      sales_today: parseFloat(today[0].sales_today || 0),
+      orders_today,
+      sales_today,
       top_products: topProducts.map(tp => ({
         name: tp.name,
         quantity_sold: parseFloat(tp.quantity_sold || 0),
@@ -174,7 +176,7 @@ exports.getSales = async (req, res) => {
       LIMIT 500
     `;
 
-    const [orders] = await pool.query(query, [...productParams, ...f.params]);
+    const orders = await prisma.$queryRawUnsafe(query, ...productParams, ...f.params);
     res.json(orders);
   } catch (error) {
     console.error('Sales report error:', error);
@@ -185,9 +187,10 @@ exports.getSales = async (req, res) => {
 // ─── GET /api/reports/staff ───────────────────────────────────
 exports.getStaff = async (req, res) => {
   try {
-    const [users] = await pool.query(
-      `SELECT id, name, email, role FROM users ORDER BY name ASC`
-    );
+    const users = await prisma.user.findMany({
+      select: { id: true, name: true, email: true, role: true },
+      orderBy: { name: 'asc' }
+    });
     res.json(users);
   } catch (error) {
     console.error('Staff list error:', error);
@@ -198,7 +201,7 @@ exports.getStaff = async (req, res) => {
 // ─── GET /api/reports/sessions ────────────────────────────────
 exports.getSessions = async (req, res) => {
   try {
-    const [sessions] = await pool.query(
+    const sessions = await prisma.$queryRawUnsafe(
       `SELECT s.id, s.status, s.start_time, s.end_time, s.opening_balance,
               u.name AS opened_by
        FROM sessions s
@@ -237,7 +240,7 @@ exports.exportPDF = async (req, res) => {
       WHERE ${f.sql}
       ORDER BY o.created_at DESC
     `;
-    const [orders] = await pool.query(query, [...productParams, ...f.params]);
+    const orders = await prisma.$queryRawUnsafe(query, ...productParams, ...f.params);
 
     const doc = new PDFDocument({ margin: 40, size: 'A4' });
 
@@ -376,7 +379,7 @@ exports.exportExcel = async (req, res) => {
       WHERE ${f.sql}
       ORDER BY o.created_at DESC
     `;
-    const [orders] = await pool.query(query, [...productParams, ...f.params]);
+    const orders = await prisma.$queryRawUnsafe(query, ...productParams, ...f.params);
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'POS Cafe';

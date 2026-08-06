@@ -1,6 +1,6 @@
 const express = require('express');
-// trigger restart
 const cors = require('cors');
+const path = require('path');
 
 // ── Route Imports ──────────────────────────────────────
 // Module A routes (Foundation)
@@ -30,7 +30,7 @@ const app = express();
 
 /* ---------- CORS ---------- */
 app.use(cors({
-  origin: true, // Allow all origins during development
+  origin: process.env.CORS_ORIGIN || true, // Allow specific origin in production, or all origins if not set
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
@@ -66,11 +66,17 @@ app.use('/api/reports', reportRoutes);
 /* ---------- Test Razorpay UI ---------- */
 app.get('/test-pay', async (req, res) => {
   try {
-    const pool = require('./config/database');
+    const prisma = require('./config/database');
     const jwt = require('jsonwebtoken');
     // Create a dummy order to test with
-    const [result] = await pool.query('INSERT INTO orders (order_number, total, status) VALUES (?, ?, ?)', ['TEST-' + Date.now(), 500, 'draft']);
-    const orderId = result.insertId;
+    const order = await prisma.order.create({
+      data: {
+        order_number: 'TEST-' + Date.now(),
+        total: 500,
+        status: 'draft'
+      }
+    });
+    const orderId = order.id;
     const keyId = process.env.RAZORPAY_KEY_ID;
     
     // Generate a valid token directly from the server to bypass login dependency in testing
@@ -158,16 +164,24 @@ app.get('/test-pay', async (req, res) => {
 /* ---------- Background Tasks ---------- */
 const releaseExpiredTables = async () => {
   try {
-    const db = require('./db');
-    if (!db || !db.pool) return;
+    const prisma = require('./config/database');
 
-    const [result] = await db.pool.query(`
-      UPDATE tables 
-      SET status = 'available', self_order_expiry = NULL 
-      WHERE status = 'occupied' AND self_order_expiry IS NOT NULL AND self_order_expiry <= NOW()
-    `);
-    if (result.affectedRows > 0) {
-      console.log(`🧹 Background Task: Released ${result.affectedRows} expired self-order tables.`);
+    const result = await prisma.table.updateMany({
+      where: {
+        status: 'occupied',
+        self_order_expiry: {
+          lte: new Date(),
+          not: null
+        }
+      },
+      data: {
+        status: 'available',
+        self_order_expiry: null
+      }
+    });
+    
+    if (result.count > 0) {
+      console.log(`🧹 Background Task: Released ${result.count} expired self-order tables.`);
     }
   } catch (error) {
     // Only log essential info to avoid flooding if it's a persistent connection issue
@@ -181,5 +195,16 @@ const releaseExpiredTables = async () => {
 
 // Check every 1 minute for faster response (can be adjusted to 5 minutes)
 setInterval(releaseExpiredTables, 60 * 1000);
+
+/* ---------- Production Static File Serving ---------- */
+if (process.env.NODE_ENV === 'production') {
+  // Serve static files from the React frontend app
+  app.use(express.static(path.join(__dirname, '../frontend/dist')));
+
+  // Catch-all route to serve index.html for React Router
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
+  });
+}
 
 module.exports = app;

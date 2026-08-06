@@ -1,4 +1,4 @@
-const mysql = require('mysql2/promise');
+const prisma = require('./config/database');
 require('dotenv').config();
 
 const PRODUCTS = [
@@ -56,26 +56,25 @@ const PRODUCTS = [
 ];
 
 async function run() {
-  const conn = await mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: parseInt(process.env.DB_PORT || '4000'),
-    ssl: { rejectUnauthorized: false }
-  });
-
-  console.log('✅ Connected to TiDB for Product Seeding\n');
+  console.log('✅ Connected to TiDB via Prisma for Product Seeding\n');
 
   try {
     for (const p of PRODUCTS) {
       // Check if already exists to avoid duplicates
-      const [rows] = await conn.query('SELECT id FROM products WHERE name = ?', [p.name]);
-      if (rows.length === 0) {
-        await conn.query(
-          'INSERT INTO products (name, price, category_id, image_url, is_active, send_to_kitchen) VALUES (?, ?, ?, ?, 1, 1)',
-          [p.name, p.price, p.category_id, p.image_url]
-        );
+      const existing = await prisma.product.findFirst({
+        where: { name: p.name }
+      });
+      if (!existing) {
+        await prisma.product.create({
+          data: {
+            name: p.name,
+            price: p.price,
+            category_id: p.category_id,
+            image_url: p.image_url,
+            is_active: true,
+            send_to_kitchen: true
+          }
+        });
         console.log(`  ✅ Inserted: ${p.name}`);
       } else {
         console.log(`  ↩ Skipped: ${p.name} (Already exists)`);
@@ -85,7 +84,7 @@ async function run() {
   } catch (err) {
     console.error('❌ Error during seeding:', err);
   } finally {
-    await conn.end();
+    await prisma.$disconnect();
   }
 }
 

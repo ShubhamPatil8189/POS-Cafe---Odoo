@@ -1,312 +1,119 @@
-const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
+const prisma = require('./config/database');
 require('dotenv').config();
 
 async function seed() {
-  let connection;
   try {
-    // Build connection config
-    const connConfig = {
-      host: process.env.DB_HOST,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      port: process.env.DB_PORT || 4000,
-    };
-
-    // TiDB Cloud requires SSL
-    if (process.env.DB_SSL === 'true') {
-      connConfig.ssl = {
-        minVersion: 'TLSv1.2',
-        rejectUnauthorized: true
-      };
-    }
-
-    // Connect without database first
-    connection = await mysql.createConnection(connConfig);
-    console.log('🔗 Connected to TiDB Cloud');
-
-    // Create database if not exists
-    await connection.query(`CREATE DATABASE IF NOT EXISTS \`${process.env.DB_NAME}\``);
-    await connection.query(`USE \`${process.env.DB_NAME}\``);
-    console.log(`📦 Using database: ${process.env.DB_NAME}`);
-
-    // ── Create Tables ──────────────────────────────────
-    console.log('📋 Creating tables...');
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        email VARCHAR(150) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        role ENUM('admin', 'staff') DEFAULT 'staff',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('  ✅ users');
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS categories (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        description TEXT,
-        color VARCHAR(20) DEFAULT '#ff6b35',
-        sequence INT DEFAULT 0,
-        send_to_kitchen BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('  ✅ categories');
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS products (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(150) NOT NULL,
-        category_id INT,
-        price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-        tax DECIMAL(5, 2) DEFAULT 0.00,
-        uom VARCHAR(50) DEFAULT 'piece',
-        description TEXT,
-        image_url VARCHAR(255),
-        is_active BOOLEAN DEFAULT TRUE,
-        send_to_kitchen BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
-      )
-    `);
-    console.log('  ✅ products');
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS product_attributes (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        product_id INT NOT NULL,
-        attribute_name VARCHAR(100) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
-      )
-    `);
-    console.log('  ✅ product_attributes');
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS product_variants (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        product_id INT NOT NULL,
-        attribute_id INT NOT NULL,
-        value VARCHAR(100) NOT NULL,
-        unit VARCHAR(50),
-        extra_price DECIMAL(10, 2) DEFAULT 0.00,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-        FOREIGN KEY (attribute_id) REFERENCES product_attributes(id) ON DELETE CASCADE
-      )
-    `);
-    console.log('  ✅ product_variants');
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS product_extras (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        product_id INT NOT NULL,
-        name VARCHAR(100) NOT NULL,
-        extra_price DECIMAL(10, 2) DEFAULT 0.00,
-        is_active BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
-      )
-    `);
-    console.log('  ✅ product_extras');
-
-    // ── Unified Tables (Module B, C, D) ───────────────
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS floors (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        sequence INT DEFAULT 0,
-        is_active BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('  ✅ floors');
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS tables (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        floor_id INT,
-        table_number VARCHAR(50) NOT NULL,
-        seats INT DEFAULT 2,
-        is_active BOOLEAN DEFAULT TRUE,
-        status VARCHAR(50) DEFAULT 'available',
-        locked_by VARCHAR(255),
-        last_activity DATETIME,
-        position_x INT DEFAULT 0,
-        position_y INT DEFAULT 0,
-        self_order_token VARCHAR(255),
-        self_order_expiry DATETIME,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (floor_id) REFERENCES floors(id) ON DELETE SET NULL
-      )
-    `);
-    console.log('  ✅ tables');
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS payment_methods (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(100),
-        type VARCHAR(50) NOT NULL,
-        is_enabled BOOLEAN DEFAULT TRUE,
-        upi_id VARCHAR(100),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('  ✅ payment_methods');
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS sessions (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT,
-        terminal_id INT,
-        status VARCHAR(50) DEFAULT 'open',
-        opening_balance DECIMAL(10,2) DEFAULT 0.00,
-        closing_balance DECIMAL(10,2),
-        start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-        end_time DATETIME
-      )
-    `);
-    console.log('  ✅ sessions');
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS orders (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        order_number VARCHAR(50) UNIQUE NOT NULL,
-        session_id INT,
-        table_id INT,
-        user_id INT,
-        status ENUM('draft', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled') DEFAULT 'draft',
-        source ENUM('pos', 'self-order', 'online') DEFAULT 'pos',
-        checkout_type ENUM('advance', 'kitchen') DEFAULT 'kitchen',
-        is_paid BOOLEAN DEFAULT FALSE,
-        subtotal DECIMAL(10, 2) DEFAULT 0.00,
-        tax_total DECIMAL(10, 2) DEFAULT 0.00,
-        total DECIMAL(10, 2) DEFAULT 0.00,
-        notes TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      )
-    `);
-    console.log('  ✅ orders');
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS order_lines (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        order_id INT NOT NULL,
-        product_id INT,
-        product_name VARCHAR(150) NOT NULL,
-        quantity INT DEFAULT 1,
-        unit_price DECIMAL(10, 2) NOT NULL,
-        tax DECIMAL(5, 2) DEFAULT 0.00,
-        subtotal DECIMAL(10, 2) NOT NULL,
-        notes TEXT,
-        kitchen_status ENUM('pending', 'preparing', 'completed') DEFAULT 'pending',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
-        FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL
-      )
-    `);
-    console.log('  ✅ order_lines');
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS ModuleB_reservations (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        table_id INT,
-        customer_name VARCHAR(255) NOT NULL,
-        phone VARCHAR(50),
-        reserved_time DATETIME NOT NULL,
-        expiry_time DATETIME NOT NULL,
-        status VARCHAR(50) DEFAULT 'active'
-      )
-    `);
-    console.log('  ✅ ModuleB_reservations');
-
+    console.log('🔗 Connected via Prisma');
+    
+    // Note: Table creation is now handled by Prisma (e.g. `npx prisma db push`).
+    // This script only seeds initial data.
+    
     // ── Seed Data ──────────────────────────────────────
     console.log('\n🌱 Seeding data...');
 
     // Users
-    const [existingUsers] = await connection.query('SELECT id FROM users WHERE email = ?', ['admin@cafe.com']);
-    if (existingUsers.length === 0) {
+    const existingAdmin = await prisma.user.findUnique({
+      where: { email: 'admin@cafe.com' }
+    });
+    if (!existingAdmin) {
       const hashedPassword = await bcrypt.hash('admin123', 10);
-      await connection.query(
-        'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
-        ['Admin', 'admin@cafe.com', hashedPassword, 'admin']
-      );
+      await prisma.user.create({
+        data: {
+          name: 'Admin',
+          email: 'admin@cafe.com',
+          password: hashedPassword,
+          role: 'admin'
+        }
+      });
       console.log('  ✅ Admin user created');
     }
 
     // Categories
-    const [existingCategories] = await connection.query('SELECT id FROM categories LIMIT 1');
-    if (existingCategories.length === 0) {
-      await connection.query(`
-        INSERT INTO categories (name, color, sequence, send_to_kitchen) VALUES
-        ('Pizza', '#FF6B35', 1, TRUE),
-        ('Coffee', '#8B4513', 2, TRUE),
-        ('Pasta', '#FFD700', 3, TRUE),
-        ('Burger', '#DC143C', 4, TRUE),
-        ('Drinks', '#4169E1', 5, FALSE),
-        ('Desserts', '#FF69B4', 6, TRUE)
-      `);
+    const categoriesCount = await prisma.category.count();
+    if (categoriesCount === 0) {
+      await prisma.category.createMany({
+        data: [
+          { name: 'Pizza', color: '#FF6B35', sequence: 1, send_to_kitchen: true },
+          { name: 'Coffee', color: '#8B4513', sequence: 2, send_to_kitchen: true },
+          { name: 'Pasta', color: '#FFD700', sequence: 3, send_to_kitchen: true },
+          { name: 'Burger', color: '#DC143C', sequence: 4, send_to_kitchen: true },
+          { name: 'Drinks', color: '#4169E1', sequence: 5, send_to_kitchen: false },
+          { name: 'Desserts', color: '#FF69B4', sequence: 6, send_to_kitchen: true }
+        ]
+      });
       console.log('  ✅ Categories inserted');
     }
 
     // Products
-    const [existingProducts] = await connection.query('SELECT id FROM products LIMIT 1');
-    if (existingProducts.length === 0) {
-      await connection.query(`
-        INSERT INTO products (name, category_id, price, tax, uom, description, image_url, send_to_kitchen) VALUES
-        ('Margherita Pizza', 1, 300.00, 5.00, 'piece', 'Classic tomato and mozzarella', 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?q=80&w=600&auto=format&fit=crop', TRUE),
-        ('Pepperoni Pizza', 1, 400.00, 5.00, 'piece', 'Loaded with pepperoni', 'https://images.unsplash.com/photo-1628840042765-356cda07504e?q=80&w=600&auto=format&fit=crop', TRUE),
-        ('Farmhouse Pizza', 1, 450.00, 5.00, 'piece', 'Fresh vegetables', 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?q=80&w=600&auto=format&fit=crop', TRUE),
-        ('Cappuccino', 2, 150.00, 5.00, 'cup', 'Frothy Italian coffee', 'https://images.unsplash.com/photo-1534778101976-62847782c213?q=80&w=600&auto=format&fit=crop', TRUE),
-        ('Latte', 2, 180.00, 5.00, 'cup', 'Smooth and creamy', 'https://images.unsplash.com/photo-1593443320739-77f74939d0da?q=80&w=600&auto=format&fit=crop', TRUE),
-        ('Espresso', 2, 120.00, 5.00, 'cup', 'Strong and bold', 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?q=80&w=600&auto=format&fit=crop', TRUE),
-        ('Alfredo Pasta', 3, 350.00, 5.00, 'plate', 'Creamy white sauce', 'https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?q=80&w=600&auto=format&fit=crop', TRUE),
-        ('Arrabbiata Pasta', 3, 320.00, 5.00, 'plate', 'Spicy red sauce', 'https://images.unsplash.com/photo-1563379926898-05f4575a45d8?q=80&w=600&auto=format&fit=crop', TRUE),
-        ('Classic Burger', 4, 250.00, 5.00, 'piece', 'Juicy beef patty', 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=600&auto=format&fit=crop', TRUE),
-        ('Cheese Burger', 4, 300.00, 5.00, 'piece', 'Double cheese', 'https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=600&auto=format&fit=crop', TRUE),
-        ('Water Bottle', 5, 20.00, 0.00, 'bottle', '500ml', 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?q=80&w=600&auto=format&fit=crop', FALSE),
-        ('Cold Coffee', 5, 200.00, 5.00, 'glass', 'Iced cold coffee', 'https://images.unsplash.com/photo-1517701604599-bb24b3180ddf?q=80&w=600&auto=format&fit=crop', FALSE),
-        ('Lemon Soda', 5, 80.00, 5.00, 'glass', 'Fresh lemon soda', 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?q=80&w=600&auto=format&fit=crop', FALSE),
-        ('Chocolate Brownie', 6, 210.00, 5.00, 'piece', 'Walnut brownie', 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?q=80&w=600&auto=format&fit=crop', TRUE)
-      `);
+    const productsCount = await prisma.product.count();
+    if (productsCount === 0) {
+      // Fetch categories to get their IDs
+      const categories = await prisma.category.findMany();
+      const getCategoryId = (name) => categories.find(c => c.name === name)?.id;
+      
+      await prisma.product.createMany({
+        data: [
+          { name: 'Margherita Pizza', category_id: getCategoryId('Pizza'), price: 300.00, tax: 5.00, uom: 'piece', description: 'Classic tomato and mozzarella', image_url: 'https://images.unsplash.com/photo-1574071318508-1cdbab80d002?q=80&w=600&auto=format&fit=crop', send_to_kitchen: true },
+          { name: 'Pepperoni Pizza', category_id: getCategoryId('Pizza'), price: 400.00, tax: 5.00, uom: 'piece', description: 'Loaded with pepperoni', image_url: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?q=80&w=600&auto=format&fit=crop', send_to_kitchen: true },
+          { name: 'Farmhouse Pizza', category_id: getCategoryId('Pizza'), price: 450.00, tax: 5.00, uom: 'piece', description: 'Fresh vegetables', image_url: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?q=80&w=600&auto=format&fit=crop', send_to_kitchen: true },
+          { name: 'Cappuccino', category_id: getCategoryId('Coffee'), price: 150.00, tax: 5.00, uom: 'cup', description: 'Frothy Italian coffee', image_url: 'https://images.unsplash.com/photo-1534778101976-62847782c213?q=80&w=600&auto=format&fit=crop', send_to_kitchen: true },
+          { name: 'Latte', category_id: getCategoryId('Coffee'), price: 180.00, tax: 5.00, uom: 'cup', description: 'Smooth and creamy', image_url: 'https://images.unsplash.com/photo-1593443320739-77f74939d0da?q=80&w=600&auto=format&fit=crop', send_to_kitchen: true },
+          { name: 'Espresso', category_id: getCategoryId('Coffee'), price: 120.00, tax: 5.00, uom: 'cup', description: 'Strong and bold', image_url: 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?q=80&w=600&auto=format&fit=crop', send_to_kitchen: true },
+          { name: 'Alfredo Pasta', category_id: getCategoryId('Pasta'), price: 350.00, tax: 5.00, uom: 'plate', description: 'Creamy white sauce', image_url: 'https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?q=80&w=600&auto=format&fit=crop', send_to_kitchen: true },
+          { name: 'Arrabbiata Pasta', category_id: getCategoryId('Pasta'), price: 320.00, tax: 5.00, uom: 'plate', description: 'Spicy red sauce', image_url: 'https://images.unsplash.com/photo-1563379926898-05f4575a45d8?q=80&w=600&auto=format&fit=crop', send_to_kitchen: true },
+          { name: 'Classic Burger', category_id: getCategoryId('Burger'), price: 250.00, tax: 5.00, uom: 'piece', description: 'Juicy beef patty', image_url: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=600&auto=format&fit=crop', send_to_kitchen: true },
+          { name: 'Cheese Burger', category_id: getCategoryId('Burger'), price: 300.00, tax: 5.00, uom: 'piece', description: 'Double cheese', image_url: 'https://images.unsplash.com/photo-1550547660-d9450f859349?q=80&w=600&auto=format&fit=crop', send_to_kitchen: true },
+          { name: 'Water Bottle', category_id: getCategoryId('Drinks'), price: 20.00, tax: 0.00, uom: 'bottle', description: '500ml', image_url: 'https://images.unsplash.com/photo-1548839140-29a749e1cf4d?q=80&w=600&auto=format&fit=crop', send_to_kitchen: false },
+          { name: 'Cold Coffee', category_id: getCategoryId('Drinks'), price: 200.00, tax: 5.00, uom: 'glass', description: 'Iced cold coffee', image_url: 'https://images.unsplash.com/photo-1517701604599-bb24b3180ddf?q=80&w=600&auto=format&fit=crop', send_to_kitchen: false },
+          { name: 'Lemon Soda', category_id: getCategoryId('Drinks'), price: 80.00, tax: 5.00, uom: 'glass', description: 'Fresh lemon soda', image_url: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?q=80&w=600&auto=format&fit=crop', send_to_kitchen: false },
+          { name: 'Chocolate Brownie', category_id: getCategoryId('Desserts'), price: 210.00, tax: 5.00, uom: 'piece', description: 'Walnut brownie', image_url: 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?q=80&w=600&auto=format&fit=crop', send_to_kitchen: true }
+        ]
+      });
       console.log('  ✅ Products inserted');
     }
 
     // Floors & Tables
-    const [existingFloors] = await connection.query('SELECT id FROM floors LIMIT 1');
-    if (existingFloors.length === 0) {
-      await connection.query("INSERT INTO floors (id, name, sequence) VALUES (1, 'Ground Floor', 1)");
-      await connection.query("INSERT INTO floors (id, name, sequence) VALUES (2, 'First Floor', 2)");
+    const floorsCount = await prisma.floor.count();
+    if (floorsCount === 0) {
+      await prisma.floor.createMany({
+        data: [
+          { id: 1, name: 'Ground Floor', sequence: 1 },
+          { id: 2, name: 'First Floor', sequence: 2 }
+        ]
+      });
       
-      await connection.query(`
-        INSERT INTO tables (floor_id, table_number, seats, status) VALUES
-        (1, 'T1', 4, 'available'),
-        (1, 'T2', 2, 'available'),
-        (1, 'T3', 6, 'available'),
-        (1, 'T4', 4, 'available'),
-        (1, 'T5', 8, 'available'),
-        (1, 'T6', 2, 'available')
-      `);
+      await prisma.table.createMany({
+        data: [
+          { floor_id: 1, table_number: 'T1', seats: 4, status: 'available' },
+          { floor_id: 1, table_number: 'T2', seats: 2, status: 'available' },
+          { floor_id: 1, table_number: 'T3', seats: 6, status: 'available' },
+          { floor_id: 1, table_number: 'T4', seats: 4, status: 'available' },
+          { floor_id: 1, table_number: 'T5', seats: 8, status: 'available' },
+          { floor_id: 1, table_number: 'T6', seats: 2, status: 'available' }
+        ]
+      });
       console.log('  ✅ Floors + Tables inserted');
+    }
+    
+    // Payment Methods
+    const methodsCount = await prisma.paymentMethod.count();
+    if (methodsCount === 0) {
+      await prisma.paymentMethod.createMany({
+        data: [
+          { name: 'Cash', type: 'cash', is_enabled: true },
+          { name: 'Digital', type: 'digital', is_enabled: true },
+          { name: 'UPI', type: 'upi', is_enabled: true, upi_id: 'merchant@upi' }
+        ]
+      });
+      console.log('  ✅ Payment Methods inserted');
     }
 
     console.log('\n🎉 Seed completed!');
   } catch (err) {
     console.error('❌ Seed error:', err.message);
   } finally {
-    if (connection) await connection.end();
+    await prisma.$disconnect();
     process.exit(0);
   }
 }

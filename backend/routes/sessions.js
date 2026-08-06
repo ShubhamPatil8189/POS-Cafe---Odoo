@@ -1,5 +1,5 @@
 const express = require('express');
-const { pool } = require('../db.js');
+const prisma = require('../config/database');
 
 const router = express.Router();
 const auth = require('../middleware/auth');
@@ -9,9 +9,30 @@ router.use(auth);
 // GET /api/sessions/current
 router.get('/current', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM sessions WHERE status = "open" ORDER BY id DESC LIMIT 1');
-    if (rows.length === 0) return res.json(null);
-    res.json(rows[0]);
+    const session = await prisma.session.findFirst({
+      where: { status: 'open' },
+      orderBy: { id: 'desc' }
+    });
+    
+    if (!session) return res.json(null);
+    
+    // Calculate cash and digital sales for this session from the payments database
+    const salesRows = await prisma.$queryRawUnsafe(`
+      SELECT 
+        SUM(CASE WHEN pm.type = 'cash' THEN p.amount ELSE 0 END) as cash,
+        SUM(CASE WHEN pm.type != 'cash' THEN p.amount ELSE 0 END) as digital
+      FROM payments p
+      JOIN orders o ON p.order_id = o.id
+      JOIN payment_methods pm ON p.method_id = pm.id
+      WHERE o.session_id = ?
+    `, session.id);
+    
+    session.sales = {
+      cash: salesRows[0]?.cash ? parseFloat(salesRows[0].cash) : 0,
+      digital: salesRows[0]?.digital ? parseFloat(salesRows[0].digital) : 0
+    };
+    
+    res.json(session);
   } catch (error) {
     console.error('Error fetching current session:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -21,8 +42,10 @@ router.get('/current', async (req, res) => {
 // GET /api/sessions
 router.get('/', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM sessions ORDER BY start_time DESC');
-    res.json(rows);
+    const sessions = await prisma.session.findMany({
+      orderBy: { start_time: 'desc' }
+    });
+    res.json(sessions);
   } catch (error) {
     console.error('Error fetching sessions:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -35,24 +58,37 @@ router.post('/open', async (req, res) => {
     const { terminal_id, opening_balance } = req.body;
     
     // Check if session already open
-    const [openSessions] = await pool.query('SELECT id FROM sessions WHERE status = "open"');
-    if (openSessions.length > 0) {
+    const openSession = await prisma.session.findFirst({
+      where: { status: 'open' }
+    });
+    
+    if (openSession) {
       return res.status(400).json({ error: 'A session is already open' });
     }
 
-    // Insert new session
-    const [result] = await pool.query(
-      'INSERT INTO sessions (terminal_id, status, opening_balance, start_time) VALUES (?, "open", ?, NOW())',
-      [terminal_id, opening_balance || 0]
-    );
+    const result = await prisma.$transaction(async (tx) => {
+      // Insert new session
+      const newSession = await tx.session.create({
+        data: {
+          terminal_id: terminal_id ? parseInt(terminal_id) : null,
+          status: 'open',
+          opening_balance: opening_balance || 0,
+          start_time: new Date()
+        }
+      });
 
-    // Update pos_terminal
-    if (terminal_id) {
-      await pool.query('UPDATE pos_terminal SET last_open_date = NOW() WHERE id = ?', [terminal_id]);
-    }
+      // Update pos_terminal
+      if (terminal_id) {
+        await tx.posTerminal.update({
+          where: { id: parseInt(terminal_id) },
+          data: { last_open_date: new Date() }
+        });
+      }
+      
+      return newSession;
+    });
 
-    const [newSession] = await pool.query('SELECT * FROM sessions WHERE id = ?', [result.insertId]);
-    res.status(201).json(newSession[0]);
+    res.status(201).json(result);
   } catch (error) {
     console.error('Error opening session:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -65,22 +101,43 @@ router.post('/close', async (req, res) => {
     const { session_id, closing_balance } = req.body;
     if (!session_id) return res.status(400).json({ error: 'session_id is required' });
 
-    await pool.query(
-      'UPDATE sessions SET status = "closed", end_time = NOW(), closing_balance = ? WHERE id = ? AND status = "open"',
-      [closing_balance || 0, session_id]
-    );
+    const result = await prisma.$transaction(async (tx) => {
+      const updatedSession = await tx.session.updateMany({
+        where: { id: parseInt(session_id), status: 'open' },
+        data: {
+          status: 'closed',
+          end_time: new Date(),
+          closing_balance: closing_balance || 0
+        }
+      });
+      
+      if (updatedSession.count === 0) {
+         throw new Error('[NotFound] Session closed or not found');
+      }
 
-    // Get terminal id to update it
-    const [sessionData] = await pool.query('SELECT * FROM sessions WHERE id = ?', [session_id]);
-    if (sessionData.length > 0 && sessionData[0].terminal_id) {
-       await pool.query('UPDATE pos_terminal SET last_sell_amount = ? WHERE id = ?', [closing_balance || 0, sessionData[0].terminal_id]);
-    }
+      const sessionData = await tx.session.findUnique({
+        where: { id: parseInt(session_id) }
+      });
 
-    res.json(sessionData[0] || { message: "Session closed or not found" });
+      if (sessionData && sessionData.terminal_id) {
+         await tx.posTerminal.update({
+           where: { id: sessionData.terminal_id },
+           data: { last_sell_amount: closing_balance || 0 }
+         });
+      }
+      
+      return sessionData;
+    });
+
+    res.json(result);
   } catch (error) {
+    if (error.message.startsWith('[NotFound]')) {
+       return res.json({ message: "Session closed or not found" });
+    }
     console.error('Error closing session:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 module.exports = router;
+

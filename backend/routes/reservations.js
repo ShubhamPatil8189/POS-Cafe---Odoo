@@ -1,5 +1,5 @@
 const express = require('express');
-const { pool } = require('../db.js');
+const prisma = require('../config/database');
 
 const router = express.Router();
 const auth = require('../middleware/auth');
@@ -9,7 +9,7 @@ router.use(auth);
 // GET /api/ModuleB_reservations
 router.get('/', async (req, res) => {
   try {
-    const [rows] = await pool.query(`
+    const rows = await prisma.$queryRawUnsafe(`
       SELECT r.*, t.table_number 
       FROM ModuleB_reservations r 
       JOIN tables t ON r.table_id = t.id 
@@ -25,7 +25,7 @@ router.get('/', async (req, res) => {
 // GET /api/ModuleB_reservations/active
 router.get('/active', async (req, res) => {
   try {
-    const [rows] = await pool.query(`
+    const rows = await prisma.$queryRawUnsafe(`
       SELECT r.*, t.table_number 
       FROM ModuleB_reservations r 
       JOIN tables t ON r.table_id = t.id 
@@ -45,20 +45,38 @@ router.post('/', async (req, res) => {
     const { table_id, customer_name, phone, reserved_time, expiry_time } = req.body;
     
     // Check if table is available
-    const [tableRow] = await pool.query('SELECT status FROM tables WHERE id = ?', [table_id]);
-    if (tableRow.length === 0) return res.status(404).json({ error: 'Table not found' });
-    if (tableRow[0].status !== 'available') return res.status(400).json({ error: `Table is currently ${tableRow[0].status}, cannot reserve.` });
+    const table = await prisma.table.findUnique({
+      where: { id: parseInt(table_id) },
+      select: { status: true }
+    });
+    
+    if (!table) return res.status(404).json({ error: 'Table not found' });
+    if (table.status !== 'available') return res.status(400).json({ error: `Table is currently ${table.status}, cannot reserve.` });
 
-    // Insert reservation
-    const [result] = await pool.query(
-      'INSERT INTO ModuleB_reservations (table_id, customer_name, phone, reserved_time, expiry_time, status) VALUES (?, ?, ?, ?, ?, "active")',
-      [table_id, customer_name, phone, reserved_time, expiry_time]
-    );
+    // Use transaction for consistency
+    const result = await prisma.$transaction(async (tx) => {
+      // Insert reservation
+      const reservation = await tx.moduleBReservation.create({
+        data: {
+          table_id: parseInt(table_id),
+          customer_name,
+          phone,
+          reserved_time: new Date(reserved_time),
+          expiry_time: new Date(expiry_time),
+          status: 'active'
+        }
+      });
 
-    // Update table status
-    await pool.query('UPDATE tables SET status = "reserved" WHERE id = ?', [table_id]);
+      // Update table status
+      await tx.table.update({
+        where: { id: parseInt(table_id) },
+        data: { status: 'reserved' }
+      });
+      
+      return reservation;
+    });
 
-    res.status(201).json({ id: result.insertId, table_id, customer_name, status: 'active' });
+    res.status(201).json({ id: result.id, table_id, customer_name, status: 'active' });
   } catch (error) {
     console.error('Error creating reservation:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -70,15 +88,29 @@ router.put('/:id/checkin', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Get reservation
-    const [resRow] = await pool.query('SELECT table_id, status FROM ModuleB_reservations WHERE id = ?', [id]);
-    if (resRow.length === 0) return res.status(404).json({ error: 'Reservation not found' });
-    if (resRow[0].status !== 'active') return res.status(400).json({ error: 'Reservation is not active' });
+    const resRow = await prisma.moduleBReservation.findUnique({
+      where: { id: parseInt(id) },
+      select: { table_id: true, status: true }
+    });
+    
+    if (!resRow) return res.status(404).json({ error: 'Reservation not found' });
+    if (resRow.status !== 'active') return res.status(400).json({ error: 'Reservation is not active' });
 
-    // Update reservation
-    await pool.query('UPDATE ModuleB_reservations SET status = "completed" WHERE id = ?', [id]);
-    // Update table
-    await pool.query('UPDATE tables SET status = "occupied" WHERE id = ?', [resRow[0].table_id]);
+    await prisma.$transaction(async (tx) => {
+      // Update reservation
+      await tx.moduleBReservation.update({
+        where: { id: parseInt(id) },
+        data: { status: 'completed' }
+      });
+      
+      // Update table
+      if (resRow.table_id) {
+        await tx.table.update({
+          where: { id: resRow.table_id },
+          data: { status: 'occupied' }
+        });
+      }
+    });
 
     res.json({ id: parseInt(id), status: 'completed' });
   } catch (error) {
@@ -92,14 +124,28 @@ router.put('/:id/cancel', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const [resRow] = await pool.query('SELECT table_id FROM ModuleB_reservations WHERE id = ?', [id]);
-    if (resRow.length === 0) return res.status(404).json({ error: 'Reservation not found' });
+    const resRow = await prisma.moduleBReservation.findUnique({
+      where: { id: parseInt(id) },
+      select: { table_id: true }
+    });
+    
+    if (!resRow) return res.status(404).json({ error: 'Reservation not found' });
 
-    // Update reservation
-    await pool.query('UPDATE ModuleB_reservations SET status = "expired" WHERE id = ?', [id]);
-    // Update table
-    await pool.query('UPDATE tables SET status = "available" WHERE id = ?', [resRow[0].table_id]);
-
+    await prisma.$transaction(async (tx) => {
+      // Update reservation
+      await tx.moduleBReservation.update({
+        where: { id: parseInt(id) },
+        data: { status: 'expired' }
+      });
+      
+      // Update table
+      if (resRow.table_id) {
+        await tx.table.update({
+          where: { id: resRow.table_id },
+          data: { status: 'available' }
+        });
+      }
+    });
 
     res.json({ id: parseInt(id), status: 'expired' });
   } catch (error) {
@@ -109,3 +155,4 @@ router.put('/:id/cancel', async (req, res) => {
 });
 
 module.exports = router;
+

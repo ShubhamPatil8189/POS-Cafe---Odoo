@@ -1,0 +1,260 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  admin
+  staff
+}
+
+enum OrderStatus {
+  draft
+  confirmed
+  preparing
+  ready
+  completed
+  cancelled
+}
+
+enum OrderSource {
+  pos
+  self_order @map("self-order")
+  online
+}
+
+enum CheckoutType {
+  advance
+  kitchen
+}
+
+enum KitchenStatus {
+  pending
+  preparing
+  ready
+  completed
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  name       String   @db.VarChar(100)
+  email      String   @unique @db.VarChar(150)
+  password   String   @db.VarChar(255)
+  role       Role     @default(staff)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  @@map("users")
+}
+
+model Category {
+  id              Int       @id @default(autoincrement())
+  name            String    @db.VarChar(100)
+  description     String?   @db.Text
+  color           String?   @default("#ff6b35") @db.VarChar(20)
+  sequence        Int?      @default(0)
+  send_to_kitchen Boolean?  @default(true)
+  created_at      DateTime? @default(now()) @db.Timestamp(0)
+  updated_at      DateTime? @default(now()) @updatedAt @db.Timestamp(0)
+  products        Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id                 Int                @id @default(autoincrement())
+  name               String             @db.VarChar(150)
+  category_id        Int?
+  category           Category?          @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  price              Decimal            @default(0.00) @db.Decimal(10, 2)
+  tax                Decimal?           @default(0.00) @db.Decimal(10, 2)
+  uom                String?            @default("piece") @db.VarChar(50)
+  description        String?            @db.Text
+  image_url          String?            @db.VarChar(255)
+  is_active          Boolean?           @default(true)
+  send_to_kitchen    Boolean?           @default(true)
+  created_at         DateTime?          @default(now()) @db.Timestamp(0)
+  updated_at         DateTime?          @default(now()) @updatedAt @db.Timestamp(0)
+  product_attributes ProductAttribute[]
+  product_variants   ProductVariant[]
+  product_extras     ProductExtra[]
+  order_lines        OrderLine[]
+
+  @@map("products")
+}
+
+model ProductAttribute {
+  id               Int              @id @default(autoincrement())
+  product_id       Int
+  product          Product          @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  attribute_name   String           @db.VarChar(100)
+  created_at       DateTime?        @default(now()) @db.Timestamp(0)
+  product_variants ProductVariant[]
+
+  @@map("product_attributes")
+}
+
+model ProductVariant {
+  id           Int              @id @default(autoincrement())
+  product_id   Int
+  product      Product          @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  attribute_id Int
+  attribute    ProductAttribute @relation(fields: [attribute_id], references: [id], onDelete: Cascade)
+  value        String           @db.VarChar(100)
+  unit         String?          @db.VarChar(50)
+  extra_price  Decimal?         @default(0.00) @db.Decimal(10, 2)
+  created_at   DateTime?        @default(now()) @db.Timestamp(0)
+
+  @@map("product_variants")
+}
+
+model ProductExtra {
+  id          Int       @id @default(autoincrement())
+  product_id  Int
+  product     Product   @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  name        String    @db.VarChar(100)
+  extra_price Decimal?  @default(0.00) @db.Decimal(10, 2)
+  is_active   Boolean?  @default(true)
+  created_at  DateTime? @default(now()) @db.Timestamp(0)
+
+  @@map("product_extras")
+}
+
+model Floor {
+  id         Int       @id @default(autoincrement())
+  name       String    @db.VarChar(100)
+  sequence   Int?      @default(0)
+  is_active  Boolean?  @default(true)
+  created_at DateTime? @default(now()) @db.Timestamp(0)
+  updated_at DateTime? @default(now()) @updatedAt @db.Timestamp(0)
+  tables     Table[]
+
+  @@map("floors")
+}
+
+model Table {
+  id                Int       @id @default(autoincrement())
+  floor_id          Int?
+  floor             Floor?    @relation(fields: [floor_id], references: [id], onDelete: SetNull)
+  table_number      String    @db.VarChar(50)
+  seats             Int?      @default(2)
+  is_active         Boolean?  @default(true)
+  status            String?   @default("available") @db.VarChar(50)
+  locked_by         String?   @db.VarChar(255)
+  last_activity     DateTime? @db.DateTime(0)
+  position_x        Int?      @default(0)
+  position_y        Int?      @default(0)
+  self_order_token  String?   @db.VarChar(255)
+  self_order_expiry DateTime? @db.DateTime(0)
+  created_at        DateTime? @default(now()) @db.Timestamp(0)
+  updated_at        DateTime? @default(now()) @updatedAt @db.Timestamp(0)
+  orders            Order[]
+
+  @@map("tables")
+}
+
+model PaymentMethod {
+  id         Int       @id @default(autoincrement())
+  name       String?   @db.VarChar(100)
+  type       String    @db.VarChar(50)
+  is_enabled Boolean?  @default(true)
+  upi_id     String?   @db.VarChar(100)
+  created_at DateTime? @default(now()) @db.Timestamp(0)
+  updated_at DateTime? @default(now()) @updatedAt @db.Timestamp(0)
+
+  @@map("payment_methods")
+}
+
+model Session {
+  id              Int       @id @default(autoincrement())
+  user_id         Int?
+  terminal_id     Int?
+  status          String?   @default("open") @db.VarChar(50)
+  opening_balance Decimal?  @default(0.00) @db.Decimal(10, 2)
+  closing_balance Decimal?  @db.Decimal(10, 2)
+  start_time      DateTime? @default(now()) @db.DateTime(0)
+  end_time        DateTime? @db.DateTime(0)
+
+  @@map("sessions")
+}
+
+model Order {
+  id            Int          @id @default(autoincrement())
+  order_number  String       @unique @db.VarChar(50)
+  session_id    Int?
+  table_id      Int?
+  table         Table?       @relation(fields: [table_id], references: [id], onDelete: SetNull)
+  user_id       Int?
+  status        OrderStatus? @default(draft)
+  source        OrderSource? @default(pos)
+  checkout_type CheckoutType? @default(kitchen)
+  is_paid       Boolean?     @default(false)
+  subtotal      Decimal?     @default(0.00) @db.Decimal(10, 2)
+  tax_total     Decimal?     @default(0.00) @db.Decimal(10, 2)
+  total         Decimal?     @default(0.00) @db.Decimal(10, 2)
+  notes         String?      @db.Text
+  created_at    DateTime?    @default(now()) @db.Timestamp(0)
+  updated_at    DateTime?    @default(now()) @updatedAt @db.Timestamp(0)
+  order_lines   OrderLine[]
+
+  @@map("orders")
+}
+
+model OrderLine {
+  id             Int            @id @default(autoincrement())
+  order_id       Int
+  order          Order          @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  product_id     Int?
+  product        Product?       @relation(fields: [product_id], references: [id], onDelete: SetNull)
+  product_name   String         @db.VarChar(150)
+  quantity       Decimal?       @default(1.000) @db.Decimal(10, 3)
+  unit_price     Decimal        @db.Decimal(10, 2)
+  tax            Decimal?       @default(0.00) @db.Decimal(10, 2)
+  subtotal       Decimal        @db.Decimal(10, 2)
+  notes          String?        @db.Text
+  kitchen_status KitchenStatus? @default(pending)
+  created_at     DateTime?      @default(now()) @db.Timestamp(0)
+
+  @@map("order_lines")
+}
+
+model ModuleBReservation {
+  id            Int      @id @default(autoincrement())
+  table_id      Int?
+  customer_name String   @db.VarChar(255)
+  phone         String?  @db.VarChar(50)
+  reserved_time DateTime @db.DateTime(0)
+  expiry_time   DateTime @db.DateTime(0)
+  status        String?  @default("active") @db.VarChar(50)
+
+  @@map("ModuleB_reservations")
+}
+
+model Payment {
+  id             Int            @id @default(autoincrement())
+  order_id       Int
+  method_id      Int?
+  amount         Decimal        @db.Decimal(10, 2)
+  status         String?        @default("pending") @db.VarChar(50)
+  transaction_id String?        @db.VarChar(255)
+  created_at     DateTime?      @default(now()) @db.Timestamp(0)
+  updated_at     DateTime?      @default(now()) @updatedAt @db.Timestamp(0)
+
+  @@map("payments")
+}
+
+model PosTerminal {
+  id                    Int       @id @default(autoincrement())
+  name                  String    @db.VarChar(255)
+  last_open_date        DateTime? @db.DateTime(0)
+  last_sell_amount      Decimal?  @default(0.00) @db.Decimal(10, 2)
+  self_ordering_enabled Boolean?  @default(false)
+  self_ordering_type    String?   @default("qr") @db.VarChar(50)
+  background_color      String?   @default("#ffffff") @db.VarChar(50)
+
+  @@map("pos_terminal")
+}

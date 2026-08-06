@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, PlusCircle, Trash } from 'lucide-react';
+import { Plus, Trash2, PlusCircle, Trash, RefreshCw } from 'lucide-react';
 import TableCard from '../floorplan/TableCard';
 
 /**
@@ -22,6 +22,7 @@ export default function TableGrid({
   sessionSalesTotal,
   resolveTable,
   isCollapsed,
+  onClearTable,
 }) {
   const [showAddFloorModal, setShowAddFloorModal] = React.useState(false);
   const [showAddTableModal, setShowAddTableModal] = React.useState(false);
@@ -172,6 +173,15 @@ export default function TableGrid({
                   )}
                   <div className="relative z-10 w-full h-full cursor-pointer">
                     <TableCard table={display} onClick={onTableClick} />
+                    {display.state !== 'available' && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); onClearTable && onClearTable(t.id); }}
+                        className="absolute top-0 left-0 z-20 p-2 m-2 bg-white/90 backdrop-blur hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-full shadow-sm border border-slate-100 opacity-0 group-hover:opacity-100 transition-all scale-90 hover:scale-100 active:scale-95"
+                        title="Clear Table (Make Available)"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </button>
+                    )}
                     {isAdmin && (
                       <button 
                         onClick={(e) => { e.stopPropagation(); setTableToDelete(t.id); }}

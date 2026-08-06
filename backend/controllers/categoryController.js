@@ -1,11 +1,14 @@
-const pool = require('../config/database');
+const prisma = require('../config/database');
 
 // ── Get All Categories ─────────────────────────────────
 exports.getAll = async (req, res) => {
   try {
-    const [categories] = await pool.query(
-      'SELECT * FROM categories ORDER BY sequence ASC, id ASC'
-    );
+    const categories = await prisma.category.findMany({
+      orderBy: [
+        { sequence: 'asc' },
+        { id: 'asc' }
+      ]
+    });
     res.json(categories);
   } catch (error) {
     console.error('Get categories error:', error);
@@ -22,13 +25,17 @@ exports.create = async (req, res) => {
       return res.status(400).json({ error: 'Category name is required.' });
     }
 
-    const [result] = await pool.query(
-      'INSERT INTO categories (name, description, color, sequence, send_to_kitchen) VALUES (?, ?, ?, ?, ?)',
-      [name, description || null, color || '#ff6b35', sequence || 0, send_to_kitchen !== undefined ? send_to_kitchen : true]
-    );
+    const created = await prisma.category.create({
+      data: {
+        name,
+        description: description || null,
+        color: color || '#ff6b35',
+        sequence: sequence !== undefined ? parseInt(sequence) : 0,
+        send_to_kitchen: send_to_kitchen !== undefined ? Boolean(send_to_kitchen) : true
+      }
+    });
 
-    const [created] = await pool.query('SELECT * FROM categories WHERE id = ?', [result.insertId]);
-    res.status(201).json(created[0]);
+    res.status(201).json(created);
   } catch (error) {
     console.error('Create category error:', error);
     res.status(500).json({ error: 'Failed to create category.' });
@@ -41,25 +48,26 @@ exports.update = async (req, res) => {
     const { id } = req.params;
     const { name, description, color, sequence, send_to_kitchen } = req.body;
 
-    const [existing] = await pool.query('SELECT * FROM categories WHERE id = ?', [id]);
-    if (existing.length === 0) {
+    const existing = await prisma.category.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!existing) {
       return res.status(404).json({ error: 'Category not found.' });
     }
 
-    await pool.query(
-      'UPDATE categories SET name = ?, description = ?, color = ?, sequence = ?, send_to_kitchen = ? WHERE id = ?',
-      [
-        name || existing[0].name,
-        description !== undefined ? description : existing[0].description,
-        color || existing[0].color,
-        sequence !== undefined ? sequence : existing[0].sequence,
-        send_to_kitchen !== undefined ? send_to_kitchen : existing[0].send_to_kitchen,
-        id
-      ]
-    );
+    const updated = await prisma.category.update({
+      where: { id: parseInt(id) },
+      data: {
+        name: name || existing.name,
+        description: description !== undefined ? description : existing.description,
+        color: color || existing.color,
+        sequence: sequence !== undefined ? parseInt(sequence) : existing.sequence,
+        send_to_kitchen: send_to_kitchen !== undefined ? Boolean(send_to_kitchen) : existing.send_to_kitchen
+      }
+    });
 
-    const [updated] = await pool.query('SELECT * FROM categories WHERE id = ?', [id]);
-    res.json(updated[0]);
+    res.json(updated);
   } catch (error) {
     console.error('Update category error:', error);
     res.status(500).json({ error: 'Failed to update category.' });
@@ -71,12 +79,18 @@ exports.remove = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const [existing] = await pool.query('SELECT * FROM categories WHERE id = ?', [id]);
-    if (existing.length === 0) {
+    const existing = await prisma.category.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!existing) {
       return res.status(404).json({ error: 'Category not found.' });
     }
 
-    await pool.query('DELETE FROM categories WHERE id = ?', [id]);
+    await prisma.category.delete({
+      where: { id: parseInt(id) }
+    });
+    
     res.json({ message: 'Category deleted successfully.' });
   } catch (error) {
     console.error('Delete category error:', error);

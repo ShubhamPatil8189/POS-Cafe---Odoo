@@ -73,7 +73,11 @@ export default function SelfOrderMenu() {
     }).filter(item => item.quantity > 0));
   };
 
-  const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const cartTax = cart.reduce((sum, item) => {
+    const taxRate = parseFloat(item.tax) || 0;
+    return sum + (item.price * item.quantity * (taxRate / 100));
+  }, 0);
+  const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0) + cartTax;
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const placeOrder = async (type) => {
@@ -90,7 +94,7 @@ export default function SelfOrderMenu() {
             name: item.name,
             quantity: item.quantity,
             price: item.price,
-            tax_rate: 5
+            tax_rate: item.tax || 0
           })),
           checkout_type: type
         })
@@ -378,7 +382,9 @@ export default function SelfOrderMenu() {
                       <div className="text-3xl font-black text-slate-900 tracking-tighter">₹{total.toFixed(2)}</div>
                     </div>
                     <div className="text-right">
-                       <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-1 rounded-md border border-slate-200">Includes 5% Tax</span>
+                       <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-1 rounded-md border border-slate-200">
+                         Includes ₹{cartTax.toFixed(2)} Tax
+                       </span>
                     </div>
                   </div>
 

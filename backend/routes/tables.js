@@ -1,5 +1,5 @@
 const express = require('express');
-const { pool } = require('../db.js');
+const prisma = require('../config/database');
 
 const router = express.Router();
 const auth = require('../middleware/auth');
@@ -16,13 +16,14 @@ const VALID_TRANSITIONS = {
 // GET /api/tables
 router.get('/', async (req, res) => {
   try {
-    const [rows] = await pool.query(`
-      SELECT t.*, f.name as floor_name 
-      FROM tables t 
-      JOIN floors f ON t.floor_id = f.id
-    `);
+    const tables = await prisma.table.findMany({
+      include: { floor: { select: { name: true } } }
+    });
     
-    const formattedRows = rows.map(r => ({ ...r, is_active: r.is_active === 1 }));
+    const formattedRows = tables.map(t => ({
+      ...t,
+      floor_name: t.floor ? t.floor.name : null
+    }));
     res.json(formattedRows);
   } catch (error) {
     console.error('Error fetching tables:', error);
@@ -34,9 +35,10 @@ router.get('/', async (req, res) => {
 router.get('/floor/:floorId', async (req, res) => {
   try {
     const { floorId } = req.params;
-    const [rows] = await pool.query('SELECT * FROM tables WHERE floor_id = ?', [floorId]);
-    const formattedRows = rows.map(r => ({ ...r, is_active: r.is_active === 1 }));
-    res.json(formattedRows);
+    const tables = await prisma.table.findMany({
+      where: { floor_id: parseInt(floorId) }
+    });
+    res.json(tables);
   } catch (error) {
     console.error('Error fetching floor tables:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -49,11 +51,15 @@ router.post('/', async (req, res) => {
     const { floor_id, table_number, seats } = req.body;
     if (!floor_id || !table_number) return res.status(400).json({ error: 'floor_id and table_number are required' });
 
-    const [result] = await pool.query(
-      'INSERT INTO tables (floor_id, table_number, seats) VALUES (?, ?, ?)',
-      [floor_id, table_number, seats || 2]
-    );
-    res.status(201).json({ id: result.insertId, floor_id, table_number, seats, status: 'available' });
+    const newTable = await prisma.table.create({
+      data: {
+        floor_id: parseInt(floor_id),
+        table_number,
+        seats: seats ? parseInt(seats) : 2,
+        status: 'available'
+      }
+    });
+    res.status(201).json(newTable);
   } catch (error) {
     console.error('Error creating table:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -66,22 +72,30 @@ router.put('/:id', async (req, res) => {
     const { id } = req.params;
     const { table_number, seats, is_active } = req.body;
     
-    const updates = [];
-    const values = [];
-    if (table_number !== undefined) { updates.push('table_number = ?'); values.push(table_number); }
-    if (seats !== undefined) { updates.push('seats = ?'); values.push(seats); }
-    if (is_active !== undefined) { updates.push('is_active = ?'); values.push(is_active); }
+    const data = {};
+    if (table_number !== undefined) data.table_number = table_number;
+    if (seats !== undefined) data.seats = parseInt(seats);
+    if (is_active !== undefined) data.is_active = is_active;
     
-    if (updates.length > 0) {
-      values.push(id);
-      await pool.query(`UPDATE tables SET ${updates.join(', ')} WHERE id = ?`, values);
+    if (Object.keys(data).length > 0) {
+      const updated = await prisma.table.update({
+        where: { id: parseInt(id) },
+        data
+      });
+      return res.json(updated);
     }
     
-    // Fetch updated
-    const [rows] = await pool.query('SELECT * FROM tables WHERE id = ?', [id]);
-    res.json({ ...rows[0], is_active: rows[0].is_active === 1 });
+    const table = await prisma.table.findUnique({
+      where: { id: parseInt(id) }
+    });
+    if (!table) return res.status(404).json({ error: 'Table not found' });
+    
+    res.json(table);
   } catch (error) {
     console.error('Error updating table:', error);
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: 'Table not found' });
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -93,20 +107,28 @@ router.put('/:id/status', async (req, res) => {
     const { status, locked_by } = req.body;
     
     // Validate transition
-    const [current] = await pool.query('SELECT status FROM tables WHERE id = ?', [id]);
-    if (current.length === 0) return res.status(404).json({ error: 'Table not found' });
+    const current = await prisma.table.findUnique({
+      where: { id: parseInt(id) },
+      select: { status: true }
+    });
     
-    const currentStatus = current[0].status;
+    if (!current) return res.status(404).json({ error: 'Table not found' });
+    
+    const currentStatus = current.status;
     if (status !== currentStatus && (!VALID_TRANSITIONS[currentStatus] || !VALID_TRANSITIONS[currentStatus].includes(status))) {
        return res.status(400).json({ error: `Invalid transition from ${currentStatus} to ${status}` });
     }
 
-    await pool.query(
-      'UPDATE tables SET status = ?, locked_by = ?, last_activity = NOW() WHERE id = ?',
-      [status, locked_by || null, id]
-    );
+    const updated = await prisma.table.update({
+      where: { id: parseInt(id) },
+      data: {
+        status,
+        locked_by: locked_by || null,
+        last_activity: new Date()
+      }
+    });
     
-    res.json({ id: parseInt(id), status, locked_by });
+    res.json(updated);
   } catch (error) {
     console.error('Error updating table status:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -117,13 +139,20 @@ router.put('/:id/status', async (req, res) => {
 router.put('/:id/clear', async (req, res) => {
   try {
     const { id } = req.params;
-    await pool.query(
-      'UPDATE tables SET status = "available", locked_by = NULL, last_activity = NULL WHERE id = ?',
-      [id]
-    );
-    res.json({ id: parseInt(id), status: 'available' });
+    const updated = await prisma.table.update({
+      where: { id: parseInt(id) },
+      data: {
+        status: 'available',
+        locked_by: null,
+        last_activity: null
+      }
+    });
+    res.json(updated);
   } catch (error) {
     console.error('Error clearing table:', error);
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: 'Table not found' });
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -132,7 +161,9 @@ router.put('/:id/clear', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    await pool.query('DELETE FROM tables WHERE id = ?', [id]);
+    await prisma.table.delete({
+      where: { id: parseInt(id) }
+    });
     res.json({ message: 'Deleted' });
   } catch (error) {
     console.error('Error deleting table:', error);
@@ -141,3 +172,4 @@ router.delete('/:id', async (req, res) => {
 });
 
 module.exports = router;
+

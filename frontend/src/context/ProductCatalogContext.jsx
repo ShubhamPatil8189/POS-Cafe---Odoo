@@ -46,7 +46,9 @@ export function ProductCatalogProvider({ children }) {
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/products`);
+      const response = await fetch(`${API_BASE_URL}/products`, {
+        cache: 'no-store'
+      });
       if (response.ok) {
         const data = await response.json();
         const merged = mergeWithSeed(data);
@@ -94,6 +96,9 @@ export function ProductCatalogProvider({ children }) {
   }, [fetchProducts]);
 
   const updateProduct = useCallback(async (id, patch) => {
+    // Optimistic UI update for instant feedback (e.g. toggle switches)
+    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+
     try {
       const response = await fetch(`${API_BASE_URL}/products/${id}`, {
         method: 'PUT',
@@ -103,18 +108,14 @@ export function ProductCatalogProvider({ children }) {
         },
         body: JSON.stringify(patch)
       });
-      if (response.ok) {
+      
+      if (!response.ok) {
+        console.error('Failed to update product in DB, rolling back.');
         await fetchProducts();
-      } else {
-        setProducts((prev) =>
-          prev.map((p) => (p.id === id ? { ...p, ...patch } : p))
-        );
       }
     } catch (err) {
-      console.error('Failed to update product in DB:', err);
-      setProducts((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, ...patch } : p))
-      );
+      console.error('Failed to update product in DB, rolling back:', err);
+      await fetchProducts();
     }
   }, [fetchProducts]);
 
